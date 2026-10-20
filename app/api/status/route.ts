@@ -37,8 +37,10 @@ export async function GET() {
   try {
     const services = await listServices();
     const results = await Promise.all(services.map(async (service) => {
-      const current: Probe = service.maintenance === 1
-        ? { status: "maintenance", message: service.maintenanceMessage || "Deze dienst is gepland in onderhoud.", responseMs: null, players: null, maxPlayers: null }
+      const current: Probe = service.paused === 1
+        ? { status: "down", message: "Deze dienst is gepauzeerd door een beheerder.", responseMs: null, players: null, maxPlayers: null }
+        : service.maintenance === 1
+          ? { status: "maintenance", message: service.maintenanceMessage || "Deze dienst is gepland in onderhoud.", responseMs: null, players: null, maxPlayers: null }
         : await probe(service);
       const bucket = Math.floor(checkedAt / 5000);
       const history = await recordHistory(service.id, bucket, checkedAt, current);
@@ -59,7 +61,8 @@ export async function GET() {
             : samples.some((sample) => sample.status === "operational")
               ? "operational"
               : "unknown";
-        return { status, checkedAt: samples[samples.length - 1].checkedAt };
+        const detail = [...samples].reverse().find((sample) => sample.status === status) ?? samples[samples.length - 1];
+        return { status, checkedAt: detail.checkedAt, message: detail.message };
       });
       return {
         id: service.id,
@@ -67,6 +70,7 @@ export async function GET() {
         category: service.category,
         kind: service.kind,
         enabled: Boolean(service.enabled),
+        paused: Boolean(service.paused),
         maintenance: Boolean(service.maintenance),
         maintenanceMessage: service.maintenanceMessage,
         ...current,

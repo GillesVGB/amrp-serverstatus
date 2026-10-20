@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS amrp_status_services (
   kind TEXT NOT NULL CHECK (kind IN ('fivem', 'website', 'http')),
   endpoint TEXT NOT NULL,
   enabled SMALLINT NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  paused SMALLINT NOT NULL DEFAULT 0 CHECK (paused IN (0, 1)),
   maintenance SMALLINT NOT NULL DEFAULT 0 CHECK (maintenance IN (0, 1)),
   maintenance_message TEXT NOT NULL DEFAULT '',
   created_at BIGINT NOT NULL,

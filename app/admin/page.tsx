@@ -5,9 +5,9 @@ import Link from "next/link";
 import { ArrowLeft, Check, CirclePlus, LoaderCircle, LogOut, Pencil, Power, Save, ShieldCheck, Trash2, Wrench, X } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
-type Service = { id: string; name: string; category: string; kind: "fivem" | "website" | "http"; endpoint: string; enabled: boolean | number; maintenance: boolean | number; maintenanceMessage: string };
-type Draft = { name: string; category: string; kind: Service["kind"]; endpoint: string; enabled: boolean; maintenance: boolean; maintenanceMessage: string };
-const emptyDraft: Draft = { name: "", category: "Websites", kind: "website", endpoint: "https://", enabled: true, maintenance: false, maintenanceMessage: "" };
+type Service = { id: string; name: string; category: string; kind: "fivem" | "website" | "http"; endpoint: string; enabled: boolean | number; paused: boolean | number; maintenance: boolean | number; maintenanceMessage: string };
+type Draft = { name: string; category: string; kind: Service["kind"]; endpoint: string; enabled: boolean; paused: boolean; maintenance: boolean; maintenanceMessage: string };
+const emptyDraft: Draft = { name: "", category: "Websites", kind: "website", endpoint: "https://", enabled: true, paused: false, maintenance: false, maintenanceMessage: "" };
 
 export default function AdminPage() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
@@ -19,6 +19,7 @@ export default function AdminPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pauseTarget, setPauseTarget] = useState<Service | null>(null);
 
   const loadServices = useCallback(async () => {
     const response = await fetch("/api/services", { cache: "no-store" });
@@ -62,20 +63,29 @@ export default function AdminPage() {
 
   function beginEdit(service: Service) {
     setEditing(service.id);
-    setDraft({ name: service.name, category: service.category, kind: service.kind, endpoint: service.endpoint, enabled: Boolean(service.enabled), maintenance: Boolean(service.maintenance), maintenanceMessage: service.maintenanceMessage || "" });
+    setDraft({ name: service.name, category: service.category, kind: service.kind, endpoint: service.endpoint, enabled: Boolean(service.enabled), paused: Boolean(service.paused), maintenance: Boolean(service.maintenance), maintenanceMessage: service.maintenanceMessage || "" });
     setError(""); setNotice("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function toggleService(service: Service) {
+  async function toggleService(service: Service, visibleWhilePaused = true) {
+    const paused = !Boolean(service.paused);
+    const enabled = paused ? visibleWhilePaused : true;
     setBusy(true); setError(""); setNotice("");
     try {
-      const response = await fetch(`/api/services/${encodeURIComponent(service.id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...service, enabled: !service.enabled }) });
+      const response = await fetch(`/api/services/${encodeURIComponent(service.id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...service, enabled, paused }) });
       const payload = await response.json() as { error?: string };
       if (!response.ok) throw new Error(payload.error || "Wijzigen mislukt.");
-      await loadServices(); setNotice(service.enabled ? "Dienst gepauzeerd." : "Dienst ingeschakeld.");
+      await loadServices(); setNotice(paused ? (enabled ? "Dienst gepauzeerd en rood zichtbaar." : "Dienst gepauzeerd en verborgen.") : "Dienst hervat.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Wijzigen mislukt."); }
     finally { setBusy(false); }
+  }
+
+  async function applyPauseChoice(visible: boolean) {
+    if (!pauseTarget) return;
+    const target = pauseTarget;
+    setPauseTarget(null);
+    await toggleService(target, visible);
   }
 
   async function toggleMaintenance(service: Service) {
@@ -155,18 +165,32 @@ export default function AdminPage() {
         </section>
 
         <section className="admin-panel services-panel">
-          <div className="panel-heading"><span className="panel-icon"><ShieldCheck size={18} /></span><div><h2>Ingestelde diensten <span className="small-count">{services.length}</span></h2><p>Schakel een dienst tijdelijk uit, wijzig de controle of verwijder hem.</p></div></div>
+          <div className="panel-heading"><span className="panel-icon"><ShieldCheck size={18} /></span><div><h2>Ingestelde diensten <span className="small-count">{services.length}</span></h2><p>Pauzeer een dienst en kies of bezoekers hem rood blijven zien of dat hij wordt verborgen.</p></div></div>
           <div className="managed-services">
             {services.map((service) => (
               <article className="managed-service" key={service.id}>
-                <span className={`managed-status ${service.maintenance ? "maintenance" : service.enabled ? "enabled" : "paused"}`} />
-                <div className="managed-info"><strong>{service.name}</strong><span>{service.category} · {service.kind === "fivem" ? "FiveM" : service.kind === "website" ? "Website" : "HTTP"} · {service.maintenance ? "Onderhoud" : service.enabled ? "Actief" : "Gepauzeerd"}</span><span className="managed-private-address">Adres wordt alleen gebruikt voor de controle.</span></div>
-                <div className="managed-actions"><button className={`icon-button ${service.maintenance ? "maintenance-action" : ""}`} title={service.maintenance ? "Onderhoud beëindigen" : "Op onderhoud zetten"} aria-label={service.maintenance ? `${service.name} uit onderhoud halen` : `${service.name} op onderhoud zetten`} onClick={() => void toggleMaintenance(service)} disabled={busy}><Wrench size={16} /></button><button className="icon-button" title={service.enabled ? "Pauzeren" : "Inschakelen"} aria-label={service.enabled ? `${service.name} pauzeren` : `${service.name} inschakelen`} onClick={() => void toggleService(service)} disabled={busy}><Power size={16} /></button><button className="icon-button" title="Aanpassen" aria-label={`${service.name} aanpassen`} onClick={() => beginEdit(service)} disabled={busy}><Pencil size={16} /></button><button className="icon-button danger-icon" title="Verwijderen" aria-label={`${service.name} verwijderen`} onClick={() => void removeService(service)} disabled={busy}><Trash2 size={16} /></button></div>
+                <span className={`managed-status ${service.paused ? service.enabled ? "paused-visible" : "paused" : service.maintenance ? "maintenance" : "enabled"}`} />
+                <div className="managed-info"><strong>{service.name}</strong><span>{service.category} · {service.kind === "fivem" ? "FiveM" : service.kind === "website" ? "Website" : "HTTP"} · {service.paused ? service.enabled ? "Gepauzeerd · zichtbaar (rood)" : "Gepauzeerd · verborgen" : service.maintenance ? "Onderhoud" : "Actief"}</span><span className="managed-private-address">Adres wordt alleen gebruikt voor de controle.</span></div>
+                <div className="managed-actions"><button className={`icon-button ${service.maintenance ? "maintenance-action" : ""}`} title={service.maintenance ? "Onderhoud beëindigen" : "Op onderhoud zetten"} aria-label={service.maintenance ? `${service.name} uit onderhoud halen` : `${service.name} op onderhoud zetten`} onClick={() => void toggleMaintenance(service)} disabled={busy}><Wrench size={16} /></button><button className={`icon-button ${service.paused && service.enabled ? "pause-visible-action" : ""}`} title={service.paused ? "Dienst hervatten" : "Pauzeren"} aria-label={service.paused ? `${service.name} hervatten` : `${service.name} pauzeren`} onClick={() => service.paused ? void toggleService(service) : setPauseTarget(service)} disabled={busy}><Power size={16} /></button><button className="icon-button" title="Aanpassen" aria-label={`${service.name} aanpassen`} onClick={() => beginEdit(service)} disabled={busy}><Pencil size={16} /></button><button className="icon-button danger-icon" title="Verwijderen" aria-label={`${service.name} verwijderen`} onClick={() => void removeService(service)} disabled={busy}><Trash2 size={16} /></button></div>
               </article>
             ))}
             {services.length === 0 && <div className="empty-group">Geen diensten gevonden.</div>}
           </div>
         </section>
+        {pauseTarget && (
+          <div className="pause-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setPauseTarget(null); }}>
+            <section className="pause-dialog" role="dialog" aria-modal="true" aria-labelledby="pause-dialog-title">
+              <button type="button" className="pause-dialog-close" aria-label="Sluiten" onClick={() => setPauseTarget(null)}><X size={17} /></button>
+              <span className="panel-icon"><Power size={18} /></span>
+              <h2 id="pause-dialog-title">{pauseTarget.name} pauzeren</h2>
+              <p>Kies hoe bezoekers deze dienst zien zolang hij gepauzeerd is.</p>
+              <div className="pause-dialog-actions">
+                <button type="button" className="pause-hide-button" onClick={() => void applyPauseChoice(false)} disabled={busy}><X size={16} /> Pauzeren en verbergen</button>
+                <button type="button" className="pause-red-button" onClick={() => void applyPauseChoice(true)} disabled={busy}><Power size={16} /> Zichtbaar houden als storing</button>
+              </div>
+            </section>
+          </div>
+        )}
         <p className="admin-footnote">De controle loopt zodra iemand de statuspagina bezoekt en zolang die openstaat. FiveM wordt gecontroleerd via dynamic.json. Een bot zonder HTTP-statusroute kan alleen als netwerkadres worden getest.</p>
       </div>
     </main>

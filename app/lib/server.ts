@@ -7,19 +7,20 @@ export type ServiceRow = {
   kind: ServiceKind;
   endpoint: string;
   enabled: number;
+  paused: number;
   maintenance: number;
   maintenanceMessage: string;
 };
 
 export const DEFAULT_SERVICES: ServiceRow[] = [
-  { id: "fivem-main", name: "Main Game Server", category: "FiveM servers", kind: "fivem", endpoint: "http://185.229.35.13:30120/dynamic.json", enabled: 1, maintenance: 0, maintenanceMessage: "" },
-  { id: "fivem-dev", name: "Dev Game Server", category: "FiveM servers", kind: "fivem", endpoint: "http://185.229.35.13:30121/dynamic.json", enabled: 1, maintenance: 0, maintenanceMessage: "" },
-  { id: "amsterdam-bot", name: "Discord Bot", category: "Diensten", kind: "http", endpoint: "http://185.229.35.13:3001/", enabled: 1, maintenance: 0, maintenanceMessage: "" },
-  { id: "meos", name: "MEOS", category: "Websites", kind: "website", endpoint: "https://meos.amsterdamrp.nl/", enabled: 1, maintenance: 0, maintenanceMessage: "" },
-  { id: "overheid", name: "Overheidsportaal", category: "Websites", kind: "website", endpoint: "https://overheid.amsterdamrp.nl/", enabled: 1, maintenance: 0, maintenanceMessage: "" },
+  { id: "fivem-main", name: "Main Game Server", category: "FiveM servers", kind: "fivem", endpoint: "http://185.229.35.13:30120/dynamic.json", enabled: 1, paused: 0, maintenance: 0, maintenanceMessage: "" },
+  { id: "fivem-dev", name: "Dev Game Server", category: "FiveM servers", kind: "fivem", endpoint: "http://185.229.35.13:30121/dynamic.json", enabled: 1, paused: 0, maintenance: 0, maintenanceMessage: "" },
+  { id: "amsterdam-bot", name: "Discord Bot", category: "Diensten", kind: "http", endpoint: "http://185.229.35.13:3001/", enabled: 1, paused: 0, maintenance: 0, maintenanceMessage: "" },
+  { id: "meos", name: "MEOS", category: "Websites", kind: "website", endpoint: "https://meos.amsterdamrp.nl/", enabled: 1, paused: 0, maintenance: 0, maintenanceMessage: "" },
+  { id: "overheid", name: "Overheidsportaal", category: "Websites", kind: "website", endpoint: "https://overheid.amsterdamrp.nl/", enabled: 1, paused: 0, maintenance: 0, maintenanceMessage: "" },
 ];
 
-type HistoryRow = { status: ServiceStatus; checkedAt: number };
+type HistoryRow = { status: ServiceStatus; checkedAt: number; message: string };
 type NeonSql = import("@neondatabase/serverless").NeonQueryFunction<false, false>;
 let memoryServices: ServiceRow[] = DEFAULT_SERVICES.map((service) => ({ ...service }));
 const memoryHistory = new Map<string, HistoryRow[]>();
@@ -49,12 +50,15 @@ async function ensureSchema() {
         kind TEXT NOT NULL CHECK (kind IN ('fivem', 'website', 'http')),
         endpoint TEXT NOT NULL,
         enabled SMALLINT NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+        paused SMALLINT NOT NULL DEFAULT 0 CHECK (paused IN (0, 1)),
         maintenance SMALLINT NOT NULL DEFAULT 0 CHECK (maintenance IN (0, 1)),
         maintenance_message TEXT NOT NULL DEFAULT '',
         created_at BIGINT NOT NULL,
         updated_at BIGINT NOT NULL
       )`;
       await sql`ALTER TABLE amrp_status_services ADD COLUMN IF NOT EXISTS maintenance SMALLINT NOT NULL DEFAULT 0`;
+      await sql`ALTER TABLE amrp_status_services ADD COLUMN IF NOT EXISTS paused SMALLINT NOT NULL DEFAULT 0 CHECK (paused IN (0, 1))`;
+      await sql`UPDATE amrp_status_services SET paused = 1 WHERE enabled = 0 AND paused = 0`;
       await sql`ALTER TABLE amrp_status_services ADD COLUMN IF NOT EXISTS maintenance_message TEXT NOT NULL DEFAULT ''`;
       await sql`CREATE INDEX IF NOT EXISTS amrp_status_services_enabled_category_idx ON amrp_status_services (enabled, category, name)`;
       await sql`CREATE TABLE IF NOT EXISTS amrp_status_history (
@@ -90,8 +94,8 @@ export async function ensureSeeded() {
     if (!existing.length) {
       for (const service of DEFAULT_SERVICES.filter((item) => item.id !== "fivem-dev")) {
         await sql.query(
-          "INSERT INTO amrp_status_services (id, name, category, kind, endpoint, enabled, maintenance, maintenance_message, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9) ON CONFLICT (id) DO NOTHING",
-          [service.id, service.name, service.category, service.kind, service.endpoint, service.enabled, service.maintenance, service.maintenanceMessage, now],
+          "INSERT INTO amrp_status_services (id, name, category, kind, endpoint, enabled, paused, maintenance, maintenance_message, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10) ON CONFLICT (id) DO NOTHING",
+          [service.id, service.name, service.category, service.kind, service.endpoint, service.enabled, service.paused, service.maintenance, service.maintenanceMessage, now],
         );
       }
     }
@@ -101,8 +105,8 @@ export async function ensureSeeded() {
     const service = DEFAULT_SERVICES.find((item) => item.id === "fivem-dev");
     if (service) {
       await sql.query(
-        "INSERT INTO amrp_status_services (id, name, category, kind, endpoint, enabled, maintenance, maintenance_message, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9) ON CONFLICT (id) DO NOTHING",
-        [service.id, service.name, service.category, service.kind, service.endpoint, service.enabled, service.maintenance, service.maintenanceMessage, now],
+        "INSERT INTO amrp_status_services (id, name, category, kind, endpoint, enabled, paused, maintenance, maintenance_message, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10) ON CONFLICT (id) DO NOTHING",
+        [service.id, service.name, service.category, service.kind, service.endpoint, service.enabled, service.paused, service.maintenance, service.maintenanceMessage, now],
       );
     }
     await sql`INSERT INTO amrp_status_migrations (version, applied_at) VALUES ('dev-server-v1', ${now}) ON CONFLICT (version) DO NOTHING`;
@@ -114,9 +118,9 @@ export async function listServices(includeDisabled = false) {
   if (!databaseUrl()) return memoryServices.filter((service) => includeDisabled || service.enabled === 1).map((service) => ({ ...service }));
   const sql = await sqlClient();
   const rows = includeDisabled
-    ? await sql`SELECT id, name, category, kind, endpoint, enabled, maintenance, maintenance_message AS "maintenanceMessage" FROM amrp_status_services ORDER BY category, name`
-    : await sql`SELECT id, name, category, kind, endpoint, enabled, maintenance, maintenance_message AS "maintenanceMessage" FROM amrp_status_services WHERE enabled = 1 ORDER BY category, name`;
-  return rows.map((row) => ({ ...row, enabled: Number(row.enabled), maintenance: Number(row.maintenance) })) as ServiceRow[];
+    ? await sql`SELECT id, name, category, kind, endpoint, enabled, paused, maintenance, maintenance_message AS "maintenanceMessage" FROM amrp_status_services ORDER BY category, name`
+    : await sql`SELECT id, name, category, kind, endpoint, enabled, paused, maintenance, maintenance_message AS "maintenanceMessage" FROM amrp_status_services WHERE enabled = 1 ORDER BY category, name`;
+  return rows.map((row) => ({ ...row, enabled: Number(row.enabled), paused: Number(row.paused), maintenance: Number(row.maintenance) })) as ServiceRow[];
 }
 
 export async function saveService(service: Omit<ServiceRow, "id">, id = crypto.randomUUID()) {
@@ -125,8 +129,8 @@ export async function saveService(service: Omit<ServiceRow, "id">, id = crypto.r
     const sql = await sqlClient();
     const now = Date.now();
     await sql.query(
-      "INSERT INTO amrp_status_services (id, name, category, kind, endpoint, enabled, maintenance, maintenance_message, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, category = EXCLUDED.category, kind = EXCLUDED.kind, endpoint = EXCLUDED.endpoint, enabled = EXCLUDED.enabled, maintenance = EXCLUDED.maintenance, maintenance_message = EXCLUDED.maintenance_message, updated_at = EXCLUDED.updated_at",
-      [id, service.name, service.category, service.kind, service.endpoint, service.enabled, service.maintenance, service.maintenanceMessage, now],
+      "INSERT INTO amrp_status_services (id, name, category, kind, endpoint, enabled, paused, maintenance, maintenance_message, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, category = EXCLUDED.category, kind = EXCLUDED.kind, endpoint = EXCLUDED.endpoint, enabled = EXCLUDED.enabled, paused = EXCLUDED.paused, maintenance = EXCLUDED.maintenance, maintenance_message = EXCLUDED.maintenance_message, updated_at = EXCLUDED.updated_at",
+      [id, service.name, service.category, service.kind, service.endpoint, service.enabled, service.paused, service.maintenance, service.maintenanceMessage, now],
     );
   } else if (memoryServices.some((item) => item.id === id)) {
     memoryServices = memoryServices.map((item) => item.id === id ? { id, ...service } : item);
@@ -159,12 +163,12 @@ export async function recordHistory(id: string, bucket: number, checkedAt: numbe
       "INSERT INTO amrp_status_history (service_id, bucket, status, checked_at, response_ms, message, players, max_players) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (service_id, bucket) DO UPDATE SET status = EXCLUDED.status, checked_at = EXCLUDED.checked_at, response_ms = EXCLUDED.response_ms, message = EXCLUDED.message, players = EXCLUDED.players, max_players = EXCLUDED.max_players",
       [id, bucket, result.status, checkedAt, result.responseMs, result.message, result.players, result.maxPlayers],
     );
-    const rows = await sql`SELECT status, checked_at AS "checkedAt" FROM amrp_status_history WHERE service_id = ${id} ORDER BY bucket DESC LIMIT 720`;
-    return rows.map((row) => ({ status: row.status as ServiceStatus, checkedAt: Number(row.checkedAt) })).reverse();
+    const rows = await sql`SELECT status, checked_at AS "checkedAt", message FROM amrp_status_history WHERE service_id = ${id} ORDER BY bucket DESC LIMIT 720`;
+    return rows.map((row) => ({ status: row.status as ServiceStatus, checkedAt: Number(row.checkedAt), message: String(row.message ?? "") })).reverse();
   }
   const samples = memoryHistory.get(id) ?? [];
   const next = samples.filter((sample) => Math.floor(sample.checkedAt / 5000) !== bucket);
-  next.push({ status: result.status, checkedAt });
+  next.push({ status: result.status, checkedAt, message: result.message });
   next.sort((a, b) => a.checkedAt - b.checkedAt);
   const trimmed = next.slice(-720);
   memoryHistory.set(id, trimmed);
@@ -216,6 +220,7 @@ export function validateService(input: unknown): Omit<ServiceRow, "id"> {
     kind,
     endpoint: url.toString(),
     enabled: value.enabled === false || value.enabled === 0 ? 0 : 1,
+    paused: value.paused === true || value.paused === 1 ? 1 : 0,
     maintenance: value.maintenance === true || value.maintenance === 1 ? 1 : 0,
     maintenanceMessage,
   };

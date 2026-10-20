@@ -7,6 +7,7 @@ import { Activity, ArrowUpRight, Check, ChevronDown, Clock3, Radio, RefreshCw, S
 import { ThemeToggle } from "@/components/theme-toggle";
 
 type Status = "operational" | "degraded" | "down" | "unknown" | "maintenance";
+type HistorySample = { status: Status; checkedAt: number; message: string };
 type Service = {
   id: string;
   name: string;
@@ -21,7 +22,7 @@ type Service = {
   players?: number | null;
   maxPlayers?: number | null;
   uptime?: number | null;
-  history: ({ status: Status; checkedAt: number } | null)[];
+  history: (HistorySample | null)[];
 };
 
 const statusLabels: Record<Status, string> = {
@@ -33,14 +34,33 @@ const statusLabels: Record<Status, string> = {
 };
 
 function UptimeBars({ history, status }: { history: Service["history"]; status: Status }) {
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const filled = Array.from({ length: 60 }, (_, index) => history[index] ?? null);
+  const selected = selectedIndex === null ? null : filled[selectedIndex] ?? null;
   return (
     <div className="uptime" aria-label="Beschikbaarheid van het laatste uur">
       <div className="uptime-bars">
         {filled.map((sample, index) => (
-          <span key={index} className={`uptime-bar ${sample ? `is-${sample.status}` : "is-empty"}`} title={sample ? `${statusLabels[sample.status]} · ${new Date(sample.checkedAt).toLocaleTimeString("nl-NL")}` : "Nog geen meting"} />
+          <button
+            key={sample?.checkedAt ?? index}
+            type="button"
+            className={`uptime-bar ${sample ? `is-${sample.status}` : "is-empty"}${selectedIndex === index ? " is-selected" : ""}`}
+            title={sample ? `${statusLabels[sample.status]} · ${new Date(sample.checkedAt).toLocaleTimeString("nl-NL")}` : "Nog geen meting"}
+            aria-label={sample ? `${statusLabels[sample.status]} om ${new Date(sample.checkedAt).toLocaleTimeString("nl-NL")}. Klik voor details.` : "Nog geen meting voor dit tijdvak. Klik voor details."}
+            aria-pressed={selectedIndex === index}
+            onClick={() => setSelectedIndex((current) => current === index ? null : index)}
+          />
         ))}
       </div>
+      {selectedIndex !== null && (
+        <div className={`uptime-detail ${selected ? `is-${selected.status}` : "is-empty"}`} role="status">
+          <div className="uptime-detail-heading">
+            <strong>{selected ? statusLabels[selected.status] : "Geen meting"}</strong>
+            {selected && <time dateTime={new Date(selected.checkedAt).toISOString()}>{new Date(selected.checkedAt).toLocaleString("nl-NL", { weekday: "short", hour: "2-digit", minute: "2-digit" })}</time>}
+          </div>
+          <span>{selected?.message || "Voor dit tijdvak is nog geen controle opgeslagen."}</span>
+        </div>
+      )}
       <div className="uptime-labels"><span>1 uur</span><span>nu · {status === "operational" ? "live" : "laatste meting"}</span></div>
     </div>
   );
