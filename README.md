@@ -4,11 +4,13 @@ Een zelfstandige statuswebsite voor de Amsterdam Roleplay FiveM-servers, Discord
 
 ## Wat de website controleert
 
-Zolang iemand de statuspagina open heeft, wordt elke vijf seconden een meting uitgevoerd. De hoofdserver op poort 30120 en de devserver op poort 30121 worden via FiveM `dynamic.json` gecontroleerd. MEOS, het overheidsportaal en andere websites worden via HTTP(S) gecontroleerd. Een botpoort zonder HTTP-healthroute kan niet bevestigen dat het botproces zelf draait en wordt daarom als niet gecontroleerd getoond.
+De statuspagina voert elke vijf seconden een meting uit zolang iemand de pagina open heeft. Voor doorlopende controles, ook als er geen bezoekers zijn, staat er een aparte monitor in `monitor/worker.mjs`. Laat die op een altijd beschikbare Node-server draaien (bijvoorbeeld dezelfde VPS als de Discord-bot). De worker roept een beveiligde Vercel-route aan; zet daarvoor dezelfde geheime `MONITOR_SECRET` in Vercel en op de monitorserver. De hoofdserver op poort 30120 en de devserver op poort 30121 worden via FiveM `dynamic.json` gecontroleerd. MEOS, het overheidsportaal en andere websites worden via HTTP(S) gecontroleerd. Een botpoort zonder HTTP-healthroute kan niet bevestigen dat het botproces zelf draait en wordt daarom als niet gecontroleerd getoond.
 
-De grafiek laat de afgelopen 60 minuten zien; ieder vakje staat voor één minuut. Diensten, onderhoudsmeldingen en meetgeschiedenis worden opgeslagen in PostgreSQL via Neon. Daardoor blijven ingestelde diensten en eerdere metingen beschikbaar na verversen, een nieuwe bezoeker of een nieuwe Vercel-deploy. Metingen lopen alleen zolang de pagina door een bezoeker wordt bekeken.
+De grafiek kan het laatste uur, 24 uur of 7 dagen tonen. Elk vakje vat één minuut, tien minuten of één uur samen. Diensten, onderhoudsmeldingen, meetgeschiedenis en incidenten worden opgeslagen in PostgreSQL via Neon. Een incident wordt één keer geopend, bijgewerkt wanneer de status verandert en afgesloten wanneer de dienst herstelt. Beheerders kunnen in `/admin` een dienst op oranje onderhoud zetten, bezoekersmelding instellen, diensten toevoegen, aanpassen, pauzeren en verwijderen. Technische controleadressen staan niet op de openbare statuspagina of in haar API-respons.
 
-Open een dienst met storing of onderhoud via de knop eronder om de uitleg te lezen. Beheerders kunnen in `/admin` een dienst op oranje onderhoud zetten, bezoekersmelding instellen, diensten toevoegen, aanpassen, pauzeren en verwijderen. Technische controleadressen staan niet op de openbare statuspagina of in haar API-respons.
+Bezoekers kunnen browsermeldingen op dit apparaat inschakelen. Daarvoor moet de browser meldingen toestaan en moet de statuspagina open blijven. Dit is geen e-mailabonnement of achtergrond-push wanneer de pagina gesloten is.
+
+Open een dienst met storing of onderhoud via de knop eronder om de uitleg te lezen.
 
 ## Vercel en Neon instellen
 
@@ -20,10 +22,20 @@ Koppel een Neon PostgreSQL-database aan dit Vercel-project. Stel daarna voor Pro
 - `ADMIN_PASSWORD_SALT` — kopieer de bestaande waarde uit het genegeerde lokale `.dev.vars`-bestand.
 - `ADMIN_PASSWORD_HASH` — kopieer de bestaande waarde uit `.dev.vars`.
 - `ADMIN_SESSION_SECRET` — kopieer de bestaande waarde uit `.dev.vars`.
+- `DISCORD_WEBHOOK_URL` — optioneel. Maak een nieuwe Discord-webhook aan voor statusmeldingen en stel de URL alleen hier in als geheime hostingvariabele. Voeg de webhook-URL nooit toe aan de repository of frontendcode.
+- `MONITOR_SECRET` — een willekeurige geheime sleutel die je ook instelt op de server waar de monitor-worker permanent draait.
 
-De tabellen en standaarddiensten worden automatisch toegevoegd bij de eerste statusaanvraag. Het schema staat ook in `db/postgres.sql`. Gebruik op Vercel nooit het daadwerkelijke `.dev.vars`-bestand en commit geen geheimen. In `.env.example` staan alleen invulnamen. Maak na het instellen van variabelen een nieuwe deploy.
+De tabellen en standaarddiensten worden automatisch toegevoegd bij de eerste statusaanvraag. Het schema staat ook in `db/postgres.sql`. Een Discord-melding wordt alleen verstuurd bij het openen van een incident, het ingaan van onderhoud en herstel; herhaalde controles tijdens dezelfde storing sturen geen nieuw bericht. Gebruik op Vercel nooit het daadwerkelijke `.dev.vars`-bestand en commit geen geheimen. In `.env.example` staan alleen invulnamen. Maak na het instellen van variabelen een nieuwe deploy.
 
 Dezelfde Neon-database kan alleen door deze statusapp worden gebruikt als de juiste `DATABASE_URL` voor dit Vercel-project is ingesteld. Diensten en onderhoudsstatus zijn gedeeld voor alle bezoekers; het gekozen kleurenthema wordt lokaal per browser opgeslagen.
+
+## Doorlopende controle inschakelen
+
+1. Stel in Vercel `MONITOR_SECRET` in als geheime omgevingsvariabele en deploy opnieuw.
+2. Zet de repository op een Node.js-server die continu actief blijft. Stel daar `STATUS_API_URL` in op de publieke statuswebsite en zet `MONITOR_SECRET` op exact dezelfde geheime waarde.
+3. Start `npm run monitor` en configureer de host om dit proces automatisch opnieuw te starten na een herstart of crash. De worker controleert elke vijf seconden; laat hem permanent actief.
+
+Vercel Cron is geen vervanging voor deze vijfseconden-worker: op Hobby is de minimale frequentie eenmaal per dag en op Pro eenmaal per minuut.
 
 ## Lokale voorvertoning
 

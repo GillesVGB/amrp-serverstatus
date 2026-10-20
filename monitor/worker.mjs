@@ -1,0 +1,37 @@
+const baseUrl = process.env.STATUS_API_URL?.replace(/\/$/, "");
+const secret = process.env.MONITOR_SECRET;
+const intervalMs = Math.max(5000, Number(process.env.STATUS_CHECK_INTERVAL_MS) || 5000);
+
+if (!baseUrl || !secret) {
+  console.error("Configureer STATUS_API_URL en MONITOR_SECRET voordat je de monitor start.");
+  process.exit(1);
+}
+
+let stopping = false;
+for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => { stopping = true; });
+
+console.log(`Amsterdam Roleplay-monitor actief; controle-interval ${intervalMs} ms.`);
+while (!stopping) {
+  const startedAt = Date.now();
+  try {
+    const response = await fetch(`${baseUrl}/api/monitor`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${secret}`, Accept: "application/json" },
+      signal: AbortSignal.timeout(15000),
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      console.error(`Statuscontrole mislukt (HTTP ${response.status}).`);
+    } else {
+      const result = await response.json();
+      console.log(`Controle voltooid: ${result.checkedServices} diensten · ${new Date(result.checkedAt).toISOString()}`);
+    }
+  } catch (error) {
+    const description = error instanceof Error && error.name === "AbortError" ? "time-out" : "verbinding niet beschikbaar";
+    console.error(`Statuscontrole mislukt: ${description}.`);
+  }
+  const delay = Math.max(250, intervalMs - (Date.now() - startedAt));
+  if (!stopping) await new Promise((resolve) => setTimeout(resolve, delay));
+}
+
+console.log("Amsterdam Roleplay-monitor gestopt.");

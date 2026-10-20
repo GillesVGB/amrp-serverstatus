@@ -21,11 +21,16 @@ export const DEFAULT_SERVICES: ServiceRow[] = [
 ];
 
 type HistoryRow = { status: ServiceStatus; checkedAt: number; message: string };
+export type IncidentRow = { id: number; serviceId: string; serviceName: string; status: ServiceStatus; reason: string; startedAt: number; resolvedAt: number | null };
+export type IncidentChange = { kind: "started" | "updated" | "recovered"; previousStatus?: ServiceStatus; incident: IncidentRow };
 type NeonSql = import("@neondatabase/serverless").NeonQueryFunction<false, false>;
 let memoryServices: ServiceRow[] = DEFAULT_SERVICES.map((service) => ({ ...service }));
 const memoryHistory = new Map<string, HistoryRow[]>();
+const memoryIncidents = new Map<string, IncidentRow>();
+const memoryIncidentHistory: IncidentRow[] = [];
 let schemaSetup: Promise<void> | undefined;
 let sqlSetup: Promise<NeonSql> | undefined;
+let lastPrunedAt = 0;
 
 function databaseUrl() {
   return process.env.DATABASE_URL || process.env.POSTGRES_URL;
@@ -73,6 +78,17 @@ async function ensureSchema() {
         PRIMARY KEY (service_id, bucket)
       )`;
       await sql`CREATE INDEX IF NOT EXISTS amrp_status_history_checked_at_idx ON amrp_status_history (checked_at)`;
+      await sql`CREATE TABLE IF NOT EXISTS amrp_status_incidents (
+        id BIGSERIAL PRIMARY KEY,
+        service_id TEXT NOT NULL REFERENCES amrp_status_services(id) ON DELETE CASCADE,
+        status TEXT NOT NULL CHECK (status IN ('degraded', 'down', 'maintenance')),
+        reason TEXT NOT NULL,
+        started_at DOUBLE PRECISION NOT NULL,
+        resolved_at DOUBLE PRECISION,
+        resolution TEXT
+      )`;
+      await sql`CREATE UNIQUE INDEX IF NOT EXISTS amrp_status_incidents_open_service_idx ON amrp_status_incidents (service_id) WHERE resolved_at IS NULL`;
+      await sql`CREATE INDEX IF NOT EXISTS amrp_status_incidents_started_at_idx ON amrp_status_incidents (started_at DESC)`;
       await sql`CREATE TABLE IF NOT EXISTS amrp_status_migrations (version TEXT PRIMARY KEY, applied_at BIGINT NOT NULL)`;
     })().catch((error) => {
       schemaSetup = undefined;
@@ -155,7 +171,7 @@ export async function deleteService(id: string) {
   return oldLength !== memoryServices.length;
 }
 
-export async function recordHistory(id: string, bucket: number, checkedAt: number, result: { status: ServiceStatus; responseMs: number | null; message: string; players: number | null; maxPlayers: number | null }): Promise<HistoryRow[]> {
+export async function recordHistory(id: string, bucket: number, checkedAt: number, result: { status: ServiceStatus; responseMs: number | null; message: string; players: number | null; maxPlayers: number | null }) {
   if (databaseUrl()) {
     await ensureSchema();
     const sql = await sqlClient();
@@ -163,19 +179,136 @@ export async function recordHistory(id: string, bucket: number, checkedAt: numbe
       "INSERT INTO amrp_status_history (service_id, bucket, status, checked_at, response_ms, message, players, max_players) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (service_id, bucket) DO UPDATE SET status = EXCLUDED.status, checked_at = EXCLUDED.checked_at, response_ms = EXCLUDED.response_ms, message = EXCLUDED.message, players = EXCLUDED.players, max_players = EXCLUDED.max_players",
       [id, bucket, result.status, checkedAt, result.responseMs, result.message, result.players, result.maxPlayers],
     );
-    const rows = await sql`SELECT status, checked_at AS "checkedAt", message FROM amrp_status_history WHERE service_id = ${id} ORDER BY bucket DESC LIMIT 720`;
-    return rows.map((row) => ({ status: row.status as ServiceStatus, checkedAt: Number(row.checkedAt), message: String(row.message ?? "") })).reverse();
+    return;
   }
   const samples = memoryHistory.get(id) ?? [];
   const next = samples.filter((sample) => Math.floor(sample.checkedAt / 5000) !== bucket);
   next.push({ status: result.status, checkedAt, message: result.message });
   next.sort((a, b) => a.checkedAt - b.checkedAt);
-  const trimmed = next.slice(-720);
+  const trimmed = next.slice(-120960);
   memoryHistory.set(id, trimmed);
-  return trimmed;
+}
+
+export type HistoryRange = "1h" | "24h" | "7d";
+const HISTORY_RANGES: Record<HistoryRange, { duration: number; bins: number }> = {
+  "1h": { duration: 60 * 60 * 1000, bins: 60 },
+  "24h": { duration: 24 * 60 * 60 * 1000, bins: 144 },
+  "7d": { duration: 7 * 24 * 60 * 60 * 1000, bins: 168 },
+};
+const statusPriority: Record<ServiceStatus, number> = { operational: 0, unknown: 1, maintenance: 2, degraded: 3, down: 4 };
+
+export async function getHistory(id: string, range: HistoryRange, now: number): Promise<(HistoryRow | null)[]> {
+  const { duration, bins } = HISTORY_RANGES[range];
+  const start = now - duration;
+  const bucketSize = duration / bins;
+  const result: (HistoryRow | null)[] = Array.from({ length: bins }, () => null);
+  if (databaseUrl()) {
+    await ensureSchema();
+    const sql = await sqlClient();
+    const rows = await sql.query(
+      `SELECT LEAST($5 - 1, FLOOR((checked_at - $1) / $2))::INTEGER AS bin,
+        (ARRAY_AGG(status ORDER BY CASE status WHEN 'down' THEN 4 WHEN 'degraded' THEN 3 WHEN 'maintenance' THEN 2 WHEN 'unknown' THEN 1 ELSE 0 END DESC, checked_at DESC))[1] AS status,
+        (ARRAY_AGG(checked_at ORDER BY CASE status WHEN 'down' THEN 4 WHEN 'degraded' THEN 3 WHEN 'maintenance' THEN 2 WHEN 'unknown' THEN 1 ELSE 0 END DESC, checked_at DESC))[1] AS "checkedAt",
+        (ARRAY_AGG(message ORDER BY CASE status WHEN 'down' THEN 4 WHEN 'degraded' THEN 3 WHEN 'maintenance' THEN 2 WHEN 'unknown' THEN 1 ELSE 0 END DESC, checked_at DESC))[1] AS message
+       FROM amrp_status_history WHERE service_id = $3 AND checked_at >= $1 AND checked_at <= $4
+       GROUP BY LEAST($5 - 1, FLOOR((checked_at - $1) / $2)) ORDER BY bin`,
+      [start, bucketSize, id, now, bins],
+    );
+    for (const row of rows) {
+      const index = Number(row.bin);
+      if (index >= 0 && index < bins) result[index] = { status: row.status as ServiceStatus, checkedAt: Number(row.checkedAt), message: String(row.message ?? "") };
+    }
+    return result;
+  }
+  for (const sample of memoryHistory.get(id) ?? []) {
+    if (sample.checkedAt < start || sample.checkedAt > now) continue;
+    const index = Math.min(bins - 1, Math.floor((sample.checkedAt - start) / bucketSize));
+    const current = result[index];
+    if (!current || statusPriority[sample.status] > statusPriority[current.status] || (statusPriority[sample.status] === statusPriority[current.status] && sample.checkedAt > current.checkedAt)) result[index] = sample;
+  }
+  return result;
+}
+
+export async function recordIncidentState(service: Pick<ServiceRow, "id" | "name">, status: ServiceStatus, reason: string, checkedAt: number): Promise<IncidentChange | null> {
+  if (status === "unknown") return null;
+  if (databaseUrl()) {
+    await ensureSchema();
+    const sql = await sqlClient();
+    if (status === "operational") {
+      const rows = await sql.query(
+        `UPDATE amrp_status_incidents SET resolved_at = $2, resolution = 'De dienst is weer operationeel.'
+         WHERE service_id = $1 AND resolved_at IS NULL RETURNING id, service_id AS "serviceId", status, reason, started_at AS "startedAt", resolved_at AS "resolvedAt"`,
+        [service.id, checkedAt],
+      );
+      const row = rows[0];
+      return row ? { kind: "recovered", incident: { ...row, id: Number(row.id), serviceId: String(row.serviceId), serviceName: service.name, status: row.status as ServiceStatus, reason: String(row.reason), startedAt: Number(row.startedAt), resolvedAt: Number(row.resolvedAt) } } : null;
+    }
+    const inserted = await sql.query(
+      `INSERT INTO amrp_status_incidents (service_id, status, reason, started_at) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (service_id) WHERE resolved_at IS NULL DO NOTHING
+       RETURNING id, service_id AS "serviceId", status, reason, started_at AS "startedAt", resolved_at AS "resolvedAt"`,
+      [service.id, status, reason, checkedAt],
+    );
+    if (inserted[0]) {
+      const row = inserted[0];
+      return { kind: "started", incident: { ...row, id: Number(row.id), serviceId: String(row.serviceId), serviceName: service.name, status: row.status as ServiceStatus, reason: String(row.reason), startedAt: Number(row.startedAt), resolvedAt: null } };
+    }
+    const existing = await sql`SELECT id, service_id AS "serviceId", status, reason, started_at AS "startedAt", resolved_at AS "resolvedAt" FROM amrp_status_incidents WHERE service_id = ${service.id} AND resolved_at IS NULL LIMIT 1`;
+    const old = existing[0];
+    if (!old || old.status === status) return null;
+    const updated = await sql.query(
+      `UPDATE amrp_status_incidents SET status = $2, reason = $3 WHERE id = $1 AND resolved_at IS NULL AND status = $4
+       RETURNING id, service_id AS "serviceId", status, reason, started_at AS "startedAt", resolved_at AS "resolvedAt"`,
+      [old.id, status, reason, old.status],
+    );
+    const row = updated[0];
+    return row ? { kind: "updated", previousStatus: old.status as ServiceStatus, incident: { ...row, id: Number(row.id), serviceId: String(row.serviceId), serviceName: service.name, status: row.status as ServiceStatus, reason: String(row.reason), startedAt: Number(row.startedAt), resolvedAt: null } } : null;
+  }
+  const existing = memoryIncidents.get(service.id);
+  if (status === "operational") {
+    if (!existing) return null;
+    const incident = { ...existing, resolvedAt: checkedAt };
+    memoryIncidents.delete(service.id);
+    const index = memoryIncidentHistory.findIndex((item) => item.id === existing.id);
+    if (index >= 0) memoryIncidentHistory[index] = incident;
+    return { kind: "recovered", incident };
+  }
+  if (!existing) {
+    const incident = { id: checkedAt, serviceId: service.id, serviceName: service.name, status, reason, startedAt: checkedAt, resolvedAt: null };
+    memoryIncidents.set(service.id, incident);
+    memoryIncidentHistory.unshift(incident);
+    return { kind: "started", incident };
+  }
+  if (existing.status === status) {
+    existing.reason = reason;
+    return null;
+  }
+  const previousStatus = existing.status;
+  const incident = { ...existing, status, reason };
+  memoryIncidents.set(service.id, incident);
+  const index = memoryIncidentHistory.findIndex((item) => item.id === existing.id);
+  if (index >= 0) memoryIncidentHistory[index] = incident;
+  return { kind: "updated", previousStatus, incident };
+}
+
+export async function listIncidents(limit = 20): Promise<IncidentRow[]> {
+  if (databaseUrl()) {
+    await ensureSchema();
+    const sql = await sqlClient();
+    const rows = await sql.query(
+      `SELECT i.id, i.service_id AS "serviceId", COALESCE(s.name, i.service_id) AS "serviceName", i.status, i.reason,
+        i.started_at AS "startedAt", i.resolved_at AS "resolvedAt"
+       FROM amrp_status_incidents i LEFT JOIN amrp_status_services s ON s.id = i.service_id
+       ORDER BY i.started_at DESC LIMIT $1`, [limit],
+    );
+    return rows.map((row) => ({ id: Number(row.id), serviceId: String(row.serviceId), serviceName: String(row.serviceName), status: row.status as ServiceStatus, reason: String(row.reason), startedAt: Number(row.startedAt), resolvedAt: row.resolvedAt === null ? null : Number(row.resolvedAt) }));
+  }
+  return memoryIncidentHistory.slice(0, limit);
 }
 
 export async function pruneHistory(before: number) {
+  if (Date.now() - lastPrunedAt < 60 * 60 * 1000) return;
+  lastPrunedAt = Date.now();
   if (databaseUrl()) {
     await ensureSchema();
     const sql = await sqlClient();

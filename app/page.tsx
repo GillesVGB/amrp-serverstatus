@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Activity, ArrowUpRight, Check, ChevronDown, Clock3, Radio, RefreshCw, ShieldAlert, ShieldCheck, WifiOff } from "lucide-react";
+import { Activity, ArrowUpRight, Bell, BellOff, Check, ChevronDown, Clock3, Radio, RefreshCw, ShieldAlert, ShieldCheck, WifiOff } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 type Status = "operational" | "degraded" | "down" | "unknown" | "maintenance";
+type Range = "1h" | "24h" | "7d";
 type HistorySample = { status: Status; checkedAt: number; message: string };
+type Incident = { id: number; serviceId: string; serviceName: string; status: Status; reason: string; startedAt: number; resolvedAt: number | null };
 type Service = {
   id: string;
   name: string;
@@ -33,12 +35,14 @@ const statusLabels: Record<Status, string> = {
   maintenance: "Onderhoud",
 };
 
-function UptimeBars({ history, status }: { history: Service["history"]; status: Status }) {
+const rangeLabels: Record<Range, string> = { "1h": "1 uur", "24h": "24 uur", "7d": "7 dagen" };
+
+function UptimeBars({ history, status, range }: { history: Service["history"]; status: Status; range: Range }) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const filled = Array.from({ length: 60 }, (_, index) => history[index] ?? null);
+  const filled = history;
   const selected = selectedIndex === null ? null : filled[selectedIndex] ?? null;
   return (
-    <div className="uptime" aria-label="Beschikbaarheid van het laatste uur">
+    <div className="uptime" aria-label={`Beschikbaarheid van de afgelopen ${rangeLabels[range]}`}>
       <div className="uptime-bars">
         {filled.map((sample, index) => (
           <button
@@ -61,7 +65,7 @@ function UptimeBars({ history, status }: { history: Service["history"]; status: 
           <span>{selected?.message || "Voor dit tijdvak is nog geen controle opgeslagen."}</span>
         </div>
       )}
-      <div className="uptime-labels"><span>1 uur</span><span>nu · {status === "operational" ? "live" : "laatste meting"}</span></div>
+      <div className="uptime-labels"><span>{rangeLabels[range]}</span><span>nu · {status === "operational" ? "live" : "laatste meting"}</span></div>
     </div>
   );
 }
@@ -82,6 +86,11 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [openDetails, setOpenDetails] = useState<string | null>(null);
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [range, setRange] = useState<Range>("1h");
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState("");
+  const previousStatuses = useRef<Record<string, Status> | null>(null);
   const checking = useRef(false);
 
   const refresh = useCallback(async (manual = false) => {
@@ -89,10 +98,21 @@ export default function Home() {
     checking.current = true;
     if (manual) setRefreshing(true);
     try {
-      const response = await fetch(`/api/status?t=${Date.now()}`, { cache: "no-store" });
+      const response = await fetch(`/api/status?range=${range}&t=${Date.now()}`, { cache: "no-store" });
       if (!response.ok) throw new Error("De status kon niet worden opgehaald.");
-      const payload = await response.json() as { services: Service[]; checkedAt: number };
+      const payload = await response.json() as { services: Service[]; incidents: Incident[]; checkedAt: number };
+      const previous = previousStatuses.current;
+      if (previous && typeof Notification !== "undefined" && Notification.permission === "granted" && localStorage.getItem("amrp_status_subscribed") === "true") {
+        const changes = payload.services.filter((service) => previous[service.id] && previous[service.id] !== service.status && (service.status === "down" || service.status === "degraded" || service.status === "maintenance" || service.status === "operational"));
+        if (changes.length) {
+          const names = changes.slice(0, 3).map((service) => service.name).join(", ");
+          const message = changes.some((service) => service.status === "down" || service.status === "degraded" || service.status === "maintenance") ? `Status gewijzigd: ${names}` : `Hersteld: ${names}`;
+          new Notification("Amsterdam Roleplay · statusupdate", { body: message, icon: "/favicon.ico", tag: "amrp-status-change" });
+        }
+      }
+      previousStatuses.current = Object.fromEntries(payload.services.map((service) => [service.id, service.status]));
       setServices(payload.services);
+      setIncidents(payload.incidents ?? []);
       setLastChecked(payload.checkedAt);
       setError("");
     } catch (cause) {
@@ -102,13 +122,35 @@ export default function Home() {
       checking.current = false;
       if (manual) setRefreshing(false);
     }
-  }, []);
+  }, [range]);
 
   useEffect(() => {
+    const preference = setTimeout(() => setNotificationsEnabled(localStorage.getItem("amrp_status_subscribed") === "true"), 0);
     const first = setTimeout(() => void refresh(), 0);
     const timer = setInterval(() => void refresh(), 5000);
-    return () => { clearTimeout(first); clearInterval(timer); };
+    return () => { clearTimeout(preference); clearTimeout(first); clearInterval(timer); };
   }, [refresh]);
+
+  const toggleNotifications = async () => {
+    if (notificationsEnabled) {
+      localStorage.removeItem("amrp_status_subscribed");
+      setNotificationsEnabled(false);
+      setNotificationMessage("Statusmeldingen zijn op dit apparaat uitgezet.");
+      return;
+    }
+    if (!("Notification" in window)) {
+      setNotificationMessage("Deze browser ondersteunt geen browsermeldingen.");
+      return;
+    }
+    const permission = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
+    if (permission !== "granted") {
+      setNotificationMessage("Sta meldingen toe in je browser om updates te ontvangen.");
+      return;
+    }
+    localStorage.setItem("amrp_status_subscribed", "true");
+    setNotificationsEnabled(true);
+    setNotificationMessage("Je volgt nu statuswijzigingen op dit apparaat. Laat deze pagina open om meldingen te ontvangen.");
+  };
 
   const activeServices = services.filter((service) => service.enabled);
   const groups = [...new Set(activeServices.map((service) => service.category))];
@@ -145,7 +187,16 @@ export default function Home() {
 
       <div className="status-intro">
         <div><p className="eyebrow">AMSTERDAM ROLEPLAY</p><h1>Systeemstatus</h1><p className="intro-text">Bekijk de actuele beschikbaarheid van onze diensten en servers.</p></div>
-        <a className="discord-link" href="https://amsterdamrp.nl/" target="_blank" rel="noreferrer">Amsterdam Roleplay <ArrowUpRight size={15} /></a>
+        <div className="status-actions">
+          <button className={`notification-button${notificationsEnabled ? " is-enabled" : ""}`} type="button" onClick={() => void toggleNotifications()}>{notificationsEnabled ? <BellOff size={15} /> : <Bell size={15} />}{notificationsEnabled ? "Meldingen uitzetten" : "Volg statusmeldingen"}</button>
+          <a className="discord-link" href="https://amsterdamrp.nl/" target="_blank" rel="noreferrer">Amsterdam Roleplay <ArrowUpRight size={15} /></a>
+        </div>
+      </div>
+      {notificationMessage && <p className="notification-message" role="status">{notificationMessage}</p>}
+
+      <div className="history-controls" aria-label="Grafiekperiode">
+        <span>Beschikbaarheid bekijken:</span>
+        {(["1h", "24h", "7d"] as Range[]).map((option) => <button key={option} type="button" className={range === option ? "is-selected" : ""} aria-pressed={range === option} onClick={() => { previousStatuses.current = null; setRange(option); }}>{rangeLabels[option]}</button>)}
       </div>
 
       <div className="service-groups">
@@ -171,7 +222,7 @@ export default function Home() {
                   </div>
                   <div className="service-extra">
                     {service.kind === "fivem" && service.players !== null && service.players !== undefined && <span className="players-count"><Radio size={14} /> {service.players}/{service.maxPlayers ?? "?"} spelers</span>}
-                    <UptimeBars history={service.history} status={service.status} />
+                    <UptimeBars key={`${service.id}-${range}`} history={service.history} status={service.status} range={range} />
                   </div>
                 </article>
               ))}
@@ -181,6 +232,16 @@ export default function Home() {
         ))}
         {!loading && groups.length === 0 && <div className="empty-group">Er zijn nog geen diensten toegevoegd.</div>}
       </div>
+
+      <section className="incidents-section" aria-labelledby="incidents-title">
+        <div className="section-heading"><ShieldAlert size={18} /><h2 id="incidents-title">Incidentenoverzicht</h2><span className="section-count">Laatste {incidents.length}</span></div>
+        {incidents.length ? <div className="incident-list">{incidents.map((incident) => (
+          <article className={`incident-card${incident.resolvedAt ? " is-resolved" : " is-active"}`} key={incident.id}>
+            <span className={`incident-indicator is-${incident.resolvedAt ? "operational" : incident.status}`} />
+            <div className="incident-main"><div className="incident-title"><strong>{incident.serviceName}</strong><span className={`incident-state is-${incident.resolvedAt ? "operational" : incident.status}`}>{incident.resolvedAt ? "Opgelost" : statusLabels[incident.status]}</span></div><p>{incident.resolvedAt ? incident.reason : incident.reason}</p><div className="incident-times"><span>Gestart {new Date(incident.startedAt).toLocaleString("nl-NL", { dateStyle: "medium", timeStyle: "short" })}</span><span>{incident.resolvedAt ? `Opgelost ${new Date(incident.resolvedAt).toLocaleString("nl-NL", { dateStyle: "medium", timeStyle: "short" })}` : "Nog actief"}</span></div></div>
+          </article>
+        ))}</div> : <div className="incident-empty"><Check size={16} /> Er zijn nog geen incidenten geregistreerd.</div>}
+      </section>
 
       <footer className="page-footer"><span><ShieldCheck size={15} /> Statusmetingen worden automatisch bijgewerkt.</span><span>Laatste controle: {checkedLabel}</span><Link href="/admin">Beheer <ArrowUpRight size={13} /></Link></footer>
       <p className="footnote">Een dienst kan bereikbaar zijn terwijl de bijbehorende applicatie zelf een storing toont. Reactietijden zijn gemeten vanaf de statusdienst.</p>

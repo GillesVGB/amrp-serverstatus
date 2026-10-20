@@ -25,6 +25,18 @@ CREATE TABLE IF NOT EXISTS amrp_status_history (
   PRIMARY KEY (service_id, bucket)
 );
 
+CREATE TABLE IF NOT EXISTS amrp_status_incidents (
+  id BIGSERIAL PRIMARY KEY,
+  service_id TEXT NOT NULL REFERENCES amrp_status_services(id) ON DELETE CASCADE,
+  status TEXT NOT NULL CHECK (status IN ('degraded', 'down', 'maintenance')),
+  reason TEXT NOT NULL,
+  started_at DOUBLE PRECISION NOT NULL,
+  resolved_at DOUBLE PRECISION,
+  resolution TEXT
+);
+
 CREATE INDEX IF NOT EXISTS amrp_status_services_enabled_category_idx ON amrp_status_services (enabled, category, name);
 CREATE INDEX IF NOT EXISTS amrp_status_history_checked_at_idx ON amrp_status_history (checked_at);
+CREATE UNIQUE INDEX IF NOT EXISTS amrp_status_incidents_open_service_idx ON amrp_status_incidents (service_id) WHERE resolved_at IS NULL;
+CREATE INDEX IF NOT EXISTS amrp_status_incidents_started_at_idx ON amrp_status_incidents (started_at DESC);
 CREATE TABLE IF NOT EXISTS amrp_status_migrations (version TEXT PRIMARY KEY, applied_at BIGINT NOT NULL);

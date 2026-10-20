@@ -1,4 +1,4 @@
-import { listServices, pruneHistory, recordHistory, type ServiceRow, type ServiceStatus } from "@/app/lib/server";
+import { getHistory, listIncidents, listServices, pruneHistory, recordHistory, recordIncidentState, type HistoryRange, type ServiceRow, type ServiceStatus } from "@/app/lib/server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -32,9 +32,47 @@ async function probe(service: ServiceRow): Promise<Probe> {
   }
 }
 
-export async function GET() {
+const validRanges: HistoryRange[] = ["1h", "24h", "7d"];
+
+async function sendDiscordAlert(serviceName: string, status: ServiceStatus, reason: string, event: "started" | "maintenance" | "recovered") {
+  const webhook = process.env.DISCORD_WEBHOOK_URL;
+  if (!webhook) return;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 1800);
+  const title = event === "recovered" ? "Dienst hersteld" : event === "maintenance" || status === "maintenance" ? "Onderhoud gestart" : "Storing gedetecteerd";
+  const color = event === "recovered" ? 0x27bc71 : status === "maintenance" ? 0xe5a12b : 0xe35454;
+  try {
+    await fetch(webhook, {
+      method: "POST",
+      cache: "no-store",
+      signal: controller.signal,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        allowed_mentions: { parse: [] },
+        embeds: [{
+          title: `Amsterdam Roleplay · ${title}`,
+          color,
+          fields: [
+            { name: "Dienst", value: serviceName.slice(0, 100), inline: true },
+            { name: "Status", value: status === "operational" ? "Operationeel" : status === "maintenance" ? "Onderhoud" : status === "degraded" ? "Gedeeltelijke storing" : "Storing", inline: true },
+            { name: event === "recovered" ? "Herstel" : "Melding", value: reason.slice(0, 900) || "Geen verdere details beschikbaar." },
+          ],
+          timestamp: new Date().toISOString(),
+        }],
+      }),
+    });
+  } catch {
+    // Status checks must keep working if Discord is unavailable.
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+export async function GET(request: Request) {
   const checkedAt = Date.now();
   try {
+    const requestedRange = new URL(request.url).searchParams.get("range") as HistoryRange | null;
+    const range: HistoryRange = requestedRange && validRanges.includes(requestedRange) ? requestedRange : "1h";
     const services = await listServices();
     const results = await Promise.all(services.map(async (service) => {
       const current: Probe = service.paused === 1
@@ -43,27 +81,21 @@ export async function GET() {
           ? { status: "maintenance", message: service.maintenanceMessage || "Deze dienst is gepland in onderhoud.", responseMs: null, players: null, maxPlayers: null }
         : await probe(service);
       const bucket = Math.floor(checkedAt / 5000);
-      const history = await recordHistory(service.id, bucket, checkedAt, current);
-      const known = history.filter((item) => item.status !== "unknown" && item.status !== "maintenance");
+      await recordHistory(service.id, bucket, checkedAt, current);
+      const [history, incidentChange] = await Promise.all([
+        getHistory(service.id, range, checkedAt),
+        recordIncidentState(service, current.status, current.message, checkedAt),
+      ]);
+      if (incidentChange?.kind === "started") {
+        await sendDiscordAlert(service.name, current.status, current.message, current.status === "maintenance" ? "maintenance" : "started");
+      } else if (incidentChange?.kind === "updated" && ((current.status === "maintenance" && incidentChange.previousStatus !== "maintenance") || (incidentChange.previousStatus === "maintenance" && current.status !== "maintenance"))) {
+        await sendDiscordAlert(service.name, current.status, current.message, current.status === "maintenance" ? "maintenance" : "started");
+      } else if (incidentChange?.kind === "recovered") {
+        await sendDiscordAlert(service.name, "operational", "De dienst reageert weer normaal.", "recovered");
+      }
+      const known = history.filter((item): item is NonNullable<typeof item> => item !== null && item.status !== "unknown" && item.status !== "maintenance");
       const upCount = known.filter((item) => item.status === "operational" || item.status === "degraded").length;
       const uptime = known.length ? Math.round((upCount / known.length) * 10000) / 100 : null;
-      const currentMinute = Math.floor(checkedAt / 60000);
-      const minuteSamples = Array.from({ length: 60 }, (_, index) => {
-        const minute = currentMinute - 59 + index;
-        const samples = history.filter((sample) => Math.floor(sample.checkedAt / 60000) === minute);
-        if (!samples.length) return null;
-        const status: ServiceStatus = samples.some((sample) => sample.status === "down")
-          ? "down"
-          : samples.some((sample) => sample.status === "degraded")
-            ? "degraded"
-          : samples.some((sample) => sample.status === "maintenance")
-            ? "maintenance"
-            : samples.some((sample) => sample.status === "operational")
-              ? "operational"
-              : "unknown";
-        const detail = [...samples].reverse().find((sample) => sample.status === status) ?? samples[samples.length - 1];
-        return { status, checkedAt: detail.checkedAt, message: detail.message };
-      });
       return {
         id: service.id,
         name: service.name,
@@ -75,12 +107,13 @@ export async function GET() {
         maintenanceMessage: service.maintenanceMessage,
         ...current,
         checkedAt,
-        history: minuteSamples,
+        history,
         uptime,
       };
     }));
-    await pruneHistory(checkedAt - 60 * 60 * 1000);
-    return Response.json({ services: results, checkedAt, checkIntervalSeconds: 5 }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate", Pragma: "no-cache", Expires: "0" } });
+    const incidents = await listIncidents();
+    await pruneHistory(checkedAt - 7 * 24 * 60 * 60 * 1000);
+    return Response.json({ services: results, incidents, checkedAt, range, checkIntervalSeconds: 5 }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate", Pragma: "no-cache", Expires: "0" } });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Statuscontrole niet beschikbaar." }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }

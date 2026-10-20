@@ -9,6 +9,7 @@
     "install:ci": "node scripts/install-ci.mjs",
     "dev": "node scripts/run-framework.mjs dev",
     "dev:vercel": "next dev",
+    "monitor": "node monitor/worker.mjs",
     "build": "next build",
     "build:sites": "node scripts/run-framework.mjs build",
     "start": "next start",
