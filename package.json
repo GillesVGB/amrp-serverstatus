@@ -10,6 +10,7 @@
     "dev": "node scripts/run-framework.mjs dev",
     "dev:vercel": "next dev",
     "monitor": "node monitor/worker.mjs",
+    "start:render-monitor": "node scripts/start-render-monitor.mjs",
     "build": "next build",
     "build:sites": "node scripts/run-framework.mjs build",
     "start": "next start",

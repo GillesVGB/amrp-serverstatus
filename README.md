@@ -35,6 +35,12 @@ Dezelfde Neon-database kan alleen door deze statusapp worden gebruikt als de jui
 2. Zet de repository op een Node.js-server die continu actief blijft. Stel daar `STATUS_API_URL` in op de publieke statuswebsite en zet `MONITOR_SECRET` op exact dezelfde geheime waarde.
 3. Start `npm run monitor` en configureer de host om dit proces automatisch opnieuw te starten na een herstart of crash. De worker controleert elke vijf seconden; laat hem permanent actief.
 
+### Render Free als monitorhost (best effort)
+
+De Render-webservice kan de monitor-worker en een kleine health-route samen starten. Stel op Render als Build Command `npm ci` in en als Start Command `npm run start:render-monitor`. Voeg `STATUS_API_URL` toe met de publieke URL van de statuswebsite en stel `MONITOR_SECRET` in op exact dezelfde waarde als in Vercel. Render levert `PORT` zelf aan. Commit geen `.env`-bestand.
+
+Maak daarna in UptimeRobot een HTTP(s)-monitor voor `https://<jouw-render-service>.onrender.com/health` met het gratis interval van vijf minuten. Die route meldt alleen `200` wanneer de worker draait. De inkomende checks kunnen voorkomen dat een gratis Render-webservice wegens inactiviteit slaapt, maar Render kan gratis services nog steeds herstarten; dit geeft dus geen uptimegarantie.
+
 Vercel Cron is geen vervanging voor deze vijfseconden-worker: op Hobby is de minimale frequentie eenmaal per dag en op Pro eenmaal per minuut.
 
 ## Lokale voorvertoning
