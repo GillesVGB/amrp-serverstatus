@@ -371,6 +371,7 @@ export default function Home() {
   const onlineCount = activeServices.filter((service) => service.status === "operational").length;
   const availabilityPercent = activeServices.length ? Math.round((onlineCount / activeServices.length) * 100) : 0;
   const checkedLabel = lastChecked ? new Date(lastChecked).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "wachten op eerste meting";
+  const updatedAtLabel = lastChecked ? new Date(lastChecked).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }) : "—";
   const monitorCheckedLabel = monitorCheckedAt ? new Date(monitorCheckedAt).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "nog geen succesvolle controle";
 
   return (
@@ -381,7 +382,7 @@ export default function Home() {
           <span className="brand-copy"><span className="brand-title">Amsterdam RP</span><span className="brand-subtitle">Systeemstatus</span></span>
         </Link>
         <div className="topbar-right">
-          <span className="live-indicator"><span className="live-dot" />Live bijgewerkt</span>
+          <span className="live-indicator"><span className="live-dot" />Laatst bijgewerkt: {updatedAtLabel}</span>
           <details className="preferences-menu">
             <summary aria-label="Persoonlijke weergave-instellingen"><Settings2 size={16} /><span>Weergave</span></summary>
             <div className="preferences-panel">
@@ -429,8 +430,8 @@ export default function Home() {
       {error && <div className="error-banner" role="alert"><WifiOff size={17} /> {error}</div>}
 
       {preferences.showMetrics && <section className="overview-kpis" aria-label="Samenvatting diensten" aria-busy={loading}>
-        <button className={`overview-kpi kpi-total${preferences.statusFilter === "all" ? " is-active" : ""}`} type="button" onClick={() => updatePreference("statusFilter", "all")}><span className="kpi-label">Totaal diensten</span><strong>{loading ? "—" : activeServices.length}</strong><span className="kpi-hint">in de statuscontrole</span><span className="kpi-symbol"><Activity size={16} aria-hidden="true" /></span></button>
-        <button className={`overview-kpi kpi-operational${preferences.statusFilter === "operational" ? " is-active" : ""}`} type="button" onClick={() => updatePreference("statusFilter", "operational")}><span className="kpi-label">Operationeel</span><strong>{loading ? "—" : onlineCount}</strong><span className="kpi-hint">reageren normaal</span><span className="kpi-symbol"><Check size={16} aria-hidden="true" /></span><span className="kpi-meter" role="progressbar" aria-label="Operationele diensten" aria-valuenow={availabilityPercent} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${availabilityPercent}%` }} /></span></button>
+        <button className={`overview-kpi kpi-total${preferences.statusFilter === "all" ? " is-active" : ""}`} type="button" onClick={() => updatePreference("statusFilter", "all")}><span className="kpi-label">Totaal diensten</span><strong>{loading ? "—" : activeServices.length}</strong><span className="kpi-hint">in de statuscontrole</span><span className="kpi-symbol"><Layers3 size={22} aria-hidden="true" /></span></button>
+        <button className={`overview-kpi kpi-operational${preferences.statusFilter === "operational" ? " is-active" : ""}`} type="button" onClick={() => updatePreference("statusFilter", "operational")}><span className="kpi-label">Operationeel</span><strong>{loading ? "—" : onlineCount}</strong><span className="kpi-hint">reageren normaal</span><span className="kpi-symbol"><Check size={22} aria-hidden="true" /></span><span className="kpi-meter" role="progressbar" aria-label="Operationele diensten" aria-valuenow={availabilityPercent} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${availabilityPercent}%` }} /></span><span className="kpi-percent">{availabilityPercent}%</span></button>
         <button className={`overview-kpi kpi-attention${preferences.statusFilter === "attention" ? " is-active" : ""}`} type="button" onClick={() => updatePreference("statusFilter", "attention")}><span className="kpi-label">Aandacht nodig</span><strong>{loading ? "—" : attentionCount}</strong><span className="kpi-hint">status is niet operationeel</span><span className="kpi-symbol"><ShieldAlert size={16} aria-hidden="true" /></span></button>
       </section>}
 
@@ -503,7 +504,7 @@ export default function Home() {
                   <ChevronDown className="service-group-chevron" size={19} aria-hidden="true" />
                 </button></h2>
               </div>
-              {!collapsed && <div className="service-list">
+              {!collapsed && <div className={`service-list${groupServices.length === 1 ? " is-single" : ""}`}>
               {groupServices.map((service) => (
                 <article className="service-row" key={service.id}>
                   <div className="service-main">

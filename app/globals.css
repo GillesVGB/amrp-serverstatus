@@ -384,3 +384,63 @@ html,body{background:var(--canvas)}
 [data-density="visual"] .service-main{grid-template-columns:94px minmax(0,1fr)}
 [data-density="visual"] .service-visual{width:94px;height:94px;flex-basis:94px}
 @media(max-width:620px){.service-row{gap:12px;padding:13px}.service-main{grid-template-columns:58px minmax(0,1fr);gap:11px}.service-visual{width:58px;height:58px;flex-basis:58px;border-radius:9px}.service-name-heading{align-items:flex-start;gap:7px}.service-name{font-size:13px}.status-pill{min-height:28px;height:28px;padding:0 8px;font-size:9px}.service-extra{grid-template-columns:minmax(105px,.62fr) minmax(0,1.38fr);gap:9px;padding-top:10px}.players-count{gap:7px}.players-count-icon{width:30px;height:30px;flex-basis:30px;border-radius:8px}.players-count-label{font-size:9px}.players-count-value strong{font-size:17px}.players-count-value small{font-size:9px}.service-extra .uptime-bars{height:18px;gap:2px}.service-extra .uptime-bar{height:16px}.service-extra .uptime-labels{margin-top:6px;font-size:9px}}
+
+/* Match the reference page proportions while retaining the blue AMRP palette. */
+.page-shell{width:min(100% - 84px,1440px);padding-bottom:44px}
+.topbar{height:90px;margin-bottom:18px}
+.brand-mark{width:52px;height:52px}
+.brand-title{font-size:22px}
+.brand-subtitle{font-size:10px}
+.live-indicator{height:38px;padding:0 14px;font-size:12px}
+.status-intro{min-height:120px;margin-bottom:15px;padding:0 0 2px}
+.status-intro .eyebrow{display:none}
+.status-intro-main{max-width:720px}
+.status-intro h1{font-size:47px;letter-spacing:-.055em}
+.intro-text{margin-top:7px;font-size:17px}
+.status-actions{gap:11px;margin-top:7px}
+.notification-button{height:32px;padding:0 10px;font-size:11px}
+.discord-link{padding:7px 2px;font-size:11px}
+.status-intro::after{top:-8px;right:-10px;width:59%;height:195px;background-image:url("/amsterdam-waterfront.svg");opacity:.9;mask-image:linear-gradient(90deg,transparent 0%,#000 23%)}
+.overall-banner{min-height:122px;margin-bottom:25px;padding:21px 27px;border-radius:15px}
+.overall-icon{width:54px;height:54px;flex-basis:54px;border-radius:50%}
+.overall-copy strong{font-size:24px}
+.overall-copy>span:not(.overall-label){font-size:14px}
+.monitor-pulse{min-width:232px;padding:11px 13px}
+.monitor-pulse strong{font-size:12px}
+.monitor-pulse small{font-size:10px}
+.overall-time{font-size:11px}
+.overview-kpis{gap:22px;margin-bottom:24px}
+.overview-kpi{min-height:112px;grid-template-columns:68px minmax(0,1fr);grid-template-rows:22px 1fr 18px;column-gap:18px;padding:17px 23px;border-radius:14px}
+.kpi-label{grid-column:2;grid-row:1;font-size:14px}
+.overview-kpi>strong{grid-column:2;grid-row:2;font-size:32px}
+.kpi-hint{grid-column:2;grid-row:3;font-size:11px}
+.kpi-symbol{grid-column:1;grid-row:1/4;width:64px;height:64px;border-radius:50%;background:#edf4fd;color:#3b70c2}
+.kpi-operational .kpi-symbol{background:#eaf7ef;color:#278558}
+.kpi-attention .kpi-symbol{background:#fff5e4;color:#ab750e}
+.kpi-operational .kpi-hint{visibility:hidden}
+.kpi-meter{right:66px;bottom:15px;left:109px;height:7px}
+.kpi-percent{position:absolute;right:22px;bottom:9px;color:#52647b;font-size:12px;font-weight:650;line-height:18px}
+.service-browser{padding:22px 23px 8px}
+.service-list{grid-template-columns:minmax(0,1fr)}
+.service-list.is-single{grid-template-columns:minmax(0,1fr)}
+.service-row{gap:16px;padding:18px 20px;border-radius:14px}
+.service-main{grid-template-columns:88px minmax(0,1fr);gap:16px}
+.service-visual{width:88px;height:88px;flex-basis:88px;border-radius:12px}
+.service-name{font-size:16px}
+.service-message{font-size:13px}
+.status-pill{min-height:36px;height:36px;padding:0 14px;font-size:12px}
+.service-extra{grid-template-columns:minmax(180px,.42fr) minmax(0,1.58fr);gap:20px;padding-top:15px}
+.players-count{gap:9px;font-size:12px}
+.players-count-icon{width:22px;height:22px;flex-basis:22px;border:0;border-radius:0;background:transparent;color:#7388a3}
+.players-count-copy{flex-direction:row;align-items:baseline;gap:6px}
+.players-count-label{font-size:12px}
+.players-count-value strong{font-size:22px}
+.players-count-value small{font-size:12px}
+.service-extra .uptime-bars{height:22px;gap:3px}
+.service-extra .uptime-bar{height:20px;max-width:6px}
+.service-extra .uptime-labels{margin-top:8px;font-size:11px}
+:root[data-theme="dark"] .kpi-percent{color:#b6c8df}
+@media(min-width:1400px){.service-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.page-shell{width:min(100% - 32px,1440px);padding-bottom:36px}.topbar{height:75px;margin-bottom:18px}.brand-title{font-size:16px}.brand-mark{width:38px;height:38px}.live-indicator{height:32px;padding:0 9px;font-size:0}.status-intro{min-height:0;margin-bottom:16px;padding:0 0 8px}.status-intro h1{font-size:34px}.intro-text{font-size:14px}.status-intro::after{top:0;width:45%;height:135px;opacity:.3}.overall-banner{min-height:0;margin-bottom:18px;padding:16px}.overall-icon{width:42px;height:42px;flex-basis:42px}.overall-copy strong{font-size:18px}.overall-copy>span:not(.overall-label){font-size:11px}.monitor-pulse{min-width:0}.overview-kpis{gap:10px;margin-bottom:20px}.overview-kpi{min-height:94px;grid-template-columns:48px minmax(0,1fr);grid-template-rows:19px 1fr 14px;column-gap:10px;padding:12px}.kpi-label{font-size:10px}.overview-kpi>strong{font-size:24px}.kpi-hint{font-size:8px}.kpi-symbol{width:44px;height:44px}.kpi-symbol svg{width:18px;height:18px}.kpi-meter{right:36px;bottom:10px;left:70px;height:4px}.kpi-percent{right:10px;bottom:4px;font-size:9px}.service-browser{padding:17px 15px 5px}.service-list{grid-template-columns:minmax(0,1fr);gap:10px}.service-row{gap:12px;padding:14px}.service-main{grid-template-columns:64px minmax(0,1fr);gap:11px}.service-visual{width:64px;height:64px;flex-basis:64px}.service-name{font-size:14px}.service-message{font-size:11px}.status-pill{min-height:30px;height:30px;padding:0 9px;font-size:10px}.service-extra{grid-template-columns:minmax(145px,.55fr) minmax(0,1.45fr);gap:11px;padding-top:11px}.players-count{gap:6px}.players-count-label{font-size:10px}.players-count-value strong{font-size:18px}.players-count-value small{font-size:10px}.service-extra .uptime-bars{height:18px;gap:2px}.service-extra .uptime-bar{height:16px;max-width:6px}.service-extra .uptime-labels{margin-top:6px;font-size:9px}}
+@media(max-width:620px){.page-shell{width:min(100% - 24px,1440px)}.status-intro h1{font-size:29px}.status-intro::after{display:none}.overall-banner{align-items:flex-start;flex-wrap:wrap}.overall-meta{width:100%;margin-left:52px}.overview-kpis{gap:6px}.overview-kpi{min-height:78px;grid-template-columns:1fr auto;grid-template-rows:17px 1fr;column-gap:4px;padding:9px 7px}.kpi-label{grid-column:1;grid-row:1;font-size:8px}.overview-kpi>strong{grid-column:1;grid-row:2;font-size:20px}.kpi-hint{display:none}.kpi-symbol{grid-column:2;grid-row:1/3;width:25px;height:25px;border-radius:8px}.kpi-symbol svg{width:14px;height:14px}.kpi-meter{right:29px;bottom:6px;left:7px;height:3px}.kpi-percent{display:none}.service-extra{grid-template-columns:minmax(105px,.62fr) minmax(0,1.38fr);gap:8px}.players-count-copy{align-items:flex-start;flex-direction:column;gap:1px}.players-count-label{font-size:9px}.players-count-value strong{font-size:17px}.service-extra .uptime-bar{max-width:5px}}
+@media(prefers-reduced-motion:reduce){.service-row,.overview-kpi{transition:none}}
