@@ -101,6 +101,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [openDetails, setOpenDetails] = useState<string | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [activeIncidentsCollapsed, setActiveIncidentsCollapsed] = useState(false);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [range, setRange] = useState<Range>("1h");
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -229,8 +230,10 @@ export default function Home() {
       </div>
 
       {activeIncidents.length > 0 && <section className={`active-incidents ${activeIncidents.some((incident) => incident.status === "down") ? "has-outage" : "has-warning"}`} aria-labelledby="active-incidents-title">
-        <div className="active-incidents-heading"><ShieldAlert size={17} aria-hidden="true" /><h2 id="active-incidents-title">Actieve incidenten</h2><span>{activeIncidents.length} actief</span></div>
-        <div className="active-incident-list">
+        <h2 className="active-incidents-heading" id="active-incidents-title"><button type="button" className="active-incidents-toggle" aria-expanded={!activeIncidentsCollapsed} aria-controls="active-incident-list" onClick={() => setActiveIncidentsCollapsed((collapsed) => !collapsed)}>
+          <ShieldAlert size={17} aria-hidden="true" /><span>Actieve incidenten</span><span className="active-incidents-count">{activeIncidents.length} actief</span><ChevronDown className="active-incidents-chevron" size={16} aria-hidden="true" />
+        </button></h2>
+        <div className="active-incident-list" id="active-incident-list" hidden={activeIncidentsCollapsed}>
           {activeIncidents.map((incident) => (
             <article className={`active-incident-card is-${incident.status}`} key={incident.id}>
               <span className="active-incident-indicator" aria-hidden="true" />
