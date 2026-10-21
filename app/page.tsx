@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Activity, ArrowUpRight, Bell, BellOff, Bot, Check, ChevronDown, Clock3, Gamepad2, Globe, LayoutGrid, List, Megaphone, MessagesSquare, Radio, RefreshCw, Search, Server, Settings2, ShieldAlert, ShieldCheck, WifiOff } from "lucide-react";
+import { Activity, ArrowUpRight, Bell, BellOff, Bot, ChartNoAxesColumn, Check, ChevronDown, CircleCheck, Clock3, Gamepad2, Globe, HeartPulse, Layers3, LayoutGrid, List, Megaphone, MessagesSquare, Radio, RefreshCw, Search, Server, Settings2, ShieldAlert, ShieldCheck, TriangleAlert, WifiOff } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 type Status = "operational" | "degraded" | "down" | "unknown" | "maintenance";
@@ -458,30 +458,28 @@ export default function Home() {
       </section>}
 
       <section className="service-browser" aria-labelledby="services-title">
-        <div className="service-browser-heading"><div><p className="eyebrow">STATUSOVERZICHT</p><h2 id="services-title">Diensten</h2><p>{filteredServices.length} van {activeServices.length} diensten zichtbaar</p></div>
+        <div className="service-browser-heading"><div className="service-browser-title"><Layers3 size={23} aria-hidden="true" /><h2 id="services-title">Diensten</h2></div>
           <div className="service-browser-controls">
             <div className="service-view-switch" role="group" aria-label="Kies dienstenweergave">
               <button type="button" className={preferences.serviceView === "cards" ? "is-selected" : ""} aria-pressed={preferences.serviceView === "cards"} onClick={() => updatePreference("serviceView", "cards")}><LayoutGrid size={15} aria-hidden="true" /><span>Kaarten</span></button>
               <button type="button" className={preferences.serviceView === "table" ? "is-selected" : ""} aria-pressed={preferences.serviceView === "table"} onClick={() => updatePreference("serviceView", "table")}><List size={15} aria-hidden="true" /><span>Tabel</span></button>
             </div>
-            <label className="service-search"><Search size={16} aria-hidden="true" /><span className="sr-only">Zoek diensten</span><input type="search" value={preferences.searchQuery} onChange={(event) => updatePreference("searchQuery", event.target.value)} placeholder="Zoek een dienst…" /></label>
           </div>
         </div>
-        <div className="service-filter-row"><div className="service-filters" role="group" aria-label="Filter diensten op status">
-          {([{ id: "all", label: "Alle", count: activeServices.length }, { id: "attention", label: "Aandacht", count: attentionCount }, { id: "operational", label: "Operationeel", count: onlineCount }] as const).map((filter) => <button key={filter.id} type="button" className={preferences.statusFilter === filter.id ? "is-selected" : ""} aria-pressed={preferences.statusFilter === filter.id} onClick={() => updatePreference("statusFilter", filter.id)}>{filter.label}<span>{filter.count}</span></button>)}
+        <div className="service-filter-row"><label className="service-search"><Search size={16} aria-hidden="true" /><span className="sr-only">Zoek diensten</span><input type="search" value={preferences.searchQuery} onChange={(event) => updatePreference("searchQuery", event.target.value)} placeholder="Zoek een dienst…" /></label><div className="service-filters" role="group" aria-label="Filter diensten op status">
+          {([{ id: "all", label: "Alle", count: activeServices.length }, { id: "attention", label: "Aandacht", count: attentionCount }, { id: "operational", label: "Operationeel", count: onlineCount }] as const).map((filter) => <button key={filter.id} type="button" className={`filter-${filter.id}${preferences.statusFilter === filter.id ? " is-selected" : ""}`} aria-pressed={preferences.statusFilter === filter.id} onClick={() => updatePreference("statusFilter", filter.id)}>{filter.id === "all" ? <Layers3 size={14} aria-hidden="true" /> : filter.id === "attention" ? <TriangleAlert size={14} aria-hidden="true" /> : <CircleCheck size={14} aria-hidden="true" />}{filter.label}<span>{filter.count}</span></button>)}
         </div></div>
 
         <section className="history-dashboard history-in-browser" aria-labelledby="history-dashboard-title">
-          <div className="history-dashboard-copy"><p className="eyebrow">BETROUWBAARHEID</p><h2 id="history-dashboard-title">Beschikbaarheid</h2><p>Bekijk per dienst hoe de status zich ontwikkelt.</p></div>
+          <div className="history-dashboard-copy"><Activity size={18} aria-hidden="true" /><h2 id="history-dashboard-title">Beschikbaarheid</h2></div>
           <div className="history-toolbar">
-            <div className="history-control-set"><span className="history-control-label">Periode</span><div className="history-control-options" role="group" aria-label="Kies de periode">
+            <div className="history-control-set"><span className="history-control-label">Periode:</span><div className="history-control-options" role="group" aria-label="Kies de periode">
               {(["1h", "24h", "7d"] as Range[]).map((option) => <button key={option} type="button" className={range === option ? "is-selected" : ""} aria-pressed={range === option} onClick={() => { previousStatuses.current = null; updatePreference("range", option); }}>{rangeLabels[option]}</button>)}
             </div></div>
-            {preferences.serviceView === "cards" && <div className="history-control-set"><span className="history-control-label">Metingen</span><div className="history-control-options" role="group" aria-label="Kies hoe metingen worden weergegeven">
-              {([{ id: "timeline", label: "Tijdlijn" }, { id: "heartbeat", label: "Hartslag" }, { id: "summary", label: "Samenvatting" }] as const).map((option) => <button key={option.id} type="button" className={preferences.uptimeView === option.id ? "is-selected" : ""} aria-pressed={preferences.uptimeView === option.id} onClick={() => updatePreference("uptimeView", option.id)}>{option.label}</button>)}
+            {preferences.serviceView === "cards" && <div className="history-control-set"><span className="history-control-label">Uptimeweergave:</span><div className="history-control-options" role="group" aria-label="Kies hoe uptime wordt weergegeven">
+              {([{ id: "timeline", label: "Tijdlijn" }, { id: "heartbeat", label: "Hartslag" }, { id: "summary", label: "Uptime" }] as const).map((option) => <button key={option.id} type="button" className={preferences.uptimeView === option.id ? "is-selected" : ""} aria-pressed={preferences.uptimeView === option.id} onClick={() => updatePreference("uptimeView", option.id)}>{option.id === "timeline" ? <ChartNoAxesColumn size={13} aria-hidden="true" /> : option.id === "heartbeat" ? <HeartPulse size={13} aria-hidden="true" /> : <Clock3 size={13} aria-hidden="true" />}{option.label}</button>)}
             </div></div>}
           </div>
-          {preferences.serviceView === "cards" && <p className="history-view-help">{preferences.uptimeView === "timeline" ? "Statusmetingen als opeenvolgende blokken." : preferences.uptimeView === "heartbeat" ? "Elke puls is één controle; de kleur toont de gemeten status." : "Beschikbaarheidspercentage en aantal controles per status."}</p>}
         </section>
 
       {preferences.serviceView === "cards" ? <div className="service-groups">
@@ -496,7 +494,7 @@ export default function Home() {
                 <h2 className="service-group-heading"><button type="button" className="service-group-toggle" aria-expanded={!collapsed} aria-label={`${group}: ${groupOnlineCount} van ${groupServices.length} online`} onClick={() => setCollapsedGroups((current) => ({ ...current, [group]: !current[group] }))}>
                   <span className="service-group-icon"><CategorySymbol category={group} /></span>
                   <span className="service-group-title">{group}</span>
-                  <span className={`group-summary is-${groupStatus}`}>{groupOnlineCount}/{groupServices.length} online</span>
+                  <span className={`group-summary is-${groupStatus}`}><span className="group-dot" aria-hidden="true" />{groupOnlineCount} van {groupServices.length} online</span>
                   <ChevronDown className="service-group-chevron" size={19} aria-hidden="true" />
                 </button></h2>
               </div>
