@@ -314,7 +314,7 @@ html,body{background:var(--canvas)}
 .service-group-toggle{gap:9px}
 .service-group-icon{width:26px;height:26px;flex-basis:26px;border-radius:7px}
 .service-group-title{color:#294361;font-size:14px}
-.group-summary{margin-left:0;padding:0;border:0;background:transparent;color:#5d6e82;font-size:10px;font-weight:550}
+.group-summary{margin-left:0;padding:0;border:0;background:transparent;color:#5d6e82;font-size:10px;font-weight:550;gap:8px}
 .group-summary .group-dot{width:8px;height:8px;display:inline-block;border-radius:50%;background:#3ab66e}
 .group-summary.is-down .group-dot{background:#dc555a}
 .group-summary.is-degraded .group-dot,.group-summary.is-maintenance .group-dot{background:#e3a02d}
