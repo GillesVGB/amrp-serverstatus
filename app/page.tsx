@@ -78,6 +78,7 @@ function ServiceVisual({ service }: { service: Service }) {
 
 const rangeLabels: Record<Range, string> = { "1h": "1 uur", "24h": "24 uur", "7d": "7 dagen" };
 const preferenceKey = "amrp-status-dashboard-v1";
+const uptimePreferenceVersionKey = "amrp-status-uptime-preference-v2";
 const defaultPreferences: DashboardPreferences = {
   serviceView: "cards",
   density: "comfortable",
@@ -104,6 +105,7 @@ function readPreferences(): DashboardPreferences {
   try {
     const stored = JSON.parse(window.localStorage.getItem(preferenceKey) || "null") as (Partial<Omit<DashboardPreferences, "uptimeView">> & { uptimeView?: string }) | null;
     if (!stored) return defaultPreferences;
+    const hasCurrentUptimePreference = window.localStorage.getItem(uptimePreferenceVersionKey) === "2";
     const validColumns = Array.isArray(stored.visibleColumns) ? stored.visibleColumns.filter((column): column is ServiceColumn => ["name", "category", "status", "uptime", "response", "players"].includes(column)) : defaultPreferences.visibleColumns;
     return {
       serviceView: stored.serviceView === "table" ? "table" : "cards",
@@ -115,7 +117,7 @@ function readPreferences(): DashboardPreferences {
       searchQuery: typeof stored.searchQuery === "string" ? stored.searchQuery : "",
       statusFilter: stored.statusFilter === "attention" || stored.statusFilter === "operational" ? stored.statusFilter : "all",
       range: stored.range === "24h" || stored.range === "7d" ? stored.range : "1h",
-      uptimeView: stored.uptimeView === "heartbeat" || stored.uptimeView === "grid" ? "heartbeat" : stored.uptimeView === "summary" ? "summary" : "timeline",
+      uptimeView: !hasCurrentUptimePreference ? defaultPreferences.uptimeView : stored.uptimeView === "heartbeat" ? "heartbeat" : stored.uptimeView === "summary" ? "summary" : "timeline",
     };
   } catch {
     return defaultPreferences;
@@ -235,7 +237,10 @@ export default function Home() {
 
   useEffect(() => {
     if (!preferencesLoaded) return;
-    try { window.localStorage.setItem(preferenceKey, JSON.stringify(preferences)); } catch { /* Keep the controls usable when browser storage is unavailable. */ }
+    try {
+      window.localStorage.setItem(preferenceKey, JSON.stringify(preferences));
+      window.localStorage.setItem(uptimePreferenceVersionKey, "2");
+    } catch { /* Keep the controls usable when browser storage is unavailable. */ }
   }, [preferences, preferencesLoaded]);
 
   function updatePreference<Key extends keyof DashboardPreferences>(key: Key, value: DashboardPreferences[Key]) {
