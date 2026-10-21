@@ -264,6 +264,13 @@ html,body{background:var(--canvas)}
 @media(max-width:760px){.overall-meta{width:100%;flex-direction:row;flex-wrap:wrap;margin-left:52px;padding-left:0;border-left:0}.overall-time{min-height:0;padding-left:10px;border-left:1px solid #dce6f3}}
 @media(max-width:620px){.overall-meta{margin-left:0;gap:10px}.overall-time{padding-left:0;border-left:0}}
 @media(max-width:760px){.brand-mark{width:29px;height:48px}.brand{gap:10px}.active-incidents-summary{display:none}}
+.status-intro{margin-bottom:25px}
+.overall-icon{width:56px;height:56px;flex-basis:56px;margin-right:29px;box-shadow:0 0 0 9px #deeee4,0 7px 17px #25ad6b30}
+.overall-copy{padding-left:23px;border-left:1px solid #dce6f3}
+.state-down .overall-icon{box-shadow:0 0 0 9px #f7dfe0,0 7px 17px #df585c30}
+.state-degraded .overall-icon,.state-maintenance .overall-icon{box-shadow:0 0 0 9px #f7edda,0 7px 17px #d99b2e30}
+@media(max-width:760px){.status-intro{margin-bottom:16px}.overall-icon{width:42px;height:42px;flex-basis:42px;margin-right:0;box-shadow:0 0 0 6px #deeee4,0 6px 14px #25ad6b25}.overall-copy{padding-left:0;border-left:0}.state-down .overall-icon{box-shadow:0 0 0 6px #f7dfe0,0 6px 14px #df585c25}.state-degraded .overall-icon,.state-maintenance .overall-icon{box-shadow:0 0 0 6px #f7edda,0 6px 14px #d99b2e25}}
+@media(max-width:620px){.overall-icon{width:42px;height:42px;flex-basis:42px}}
 
 /* Independently managed public announcements and their admin controls. */
 .public-announcements{margin:0 0 20px;padding:16px 18px;border:1px solid #cbdcf2;border-left:3px solid #4b7fc7;border-radius:13px;background:linear-gradient(115deg,#f8fbff 0%,#f0f6ff 100%);box-shadow:0 8px 22px #203b6007}
