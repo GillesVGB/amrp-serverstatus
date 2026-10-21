@@ -88,7 +88,7 @@ const defaultPreferences: DashboardPreferences = {
   searchQuery: "",
   statusFilter: "all",
   range: "1h",
-  uptimeView: "heartbeat",
+  uptimeView: "timeline",
 };
 const serviceColumnLabels: Record<ServiceColumn, string> = {
   name: "Dienst",
@@ -515,8 +515,8 @@ export default function Home() {
                       )}
                     </div>
                   </div>
-                  <div className="service-extra">
-                    {service.kind === "fivem" && service.players !== null && service.players !== undefined && <span className="players-count"><Radio size={14} /> {service.players}/{service.maxPlayers ?? "?"} spelers</span>}
+                  <div className={`service-extra${service.kind === "fivem" && service.players !== null && service.players !== undefined ? " has-players" : ""}`}>
+                    {service.kind === "fivem" && service.players !== null && service.players !== undefined && <span className="players-count"><span className="players-count-icon"><Radio size={17} aria-hidden="true" /></span><span className="players-count-copy"><span className="players-count-label">Spelers online</span><span className="players-count-value"><strong>{service.players}</strong>{service.maxPlayers !== null && service.maxPlayers !== undefined && <small> / {service.maxPlayers}</small>}</span></span></span>}
                     <UptimeBars key={`${service.id}-${range}`} history={service.history} status={service.status} range={range} uptime={service.uptime} view={preferences.uptimeView} />
                   </div>
                 </article>
