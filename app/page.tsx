@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Activity, ArrowUpRight, Bell, BellOff, Check, ChevronDown, Clock3, LayoutGrid, List, Megaphone, Radio, RefreshCw, Search, Settings2, ShieldAlert, ShieldCheck, WifiOff } from "lucide-react";
+import { Activity, ArrowUpRight, Bell, BellOff, Bot, Check, ChevronDown, Clock3, Gamepad2, Globe, LayoutGrid, List, Megaphone, MessagesSquare, Radio, RefreshCw, Search, Server, Settings2, ShieldAlert, ShieldCheck, WifiOff } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 type Status = "operational" | "degraded" | "down" | "unknown" | "maintenance";
@@ -54,6 +54,27 @@ const statusLabels: Record<Status, string> = {
   unknown: "Niet gecontroleerd",
   maintenance: "Onderhoud",
 };
+
+const serverArtwork: Record<string, { src: string; alt: string }> = {
+  "fivem-main": { src: "/fivem-main-city.png", alt: "Sfeerbeeld voor Main Game Server" },
+  "fivem-dev": { src: "/fivem-dev-city.png", alt: "Sfeerbeeld voor Dev Game Server" },
+};
+
+function CategorySymbol({ category }: { category: string }) {
+  const normalized = category.toLocaleLowerCase();
+  if (normalized.includes("fivem")) return <Gamepad2 size={16} aria-hidden="true" />;
+  if (normalized.includes("discord")) return <MessagesSquare size={16} aria-hidden="true" />;
+  if (normalized.includes("website")) return <Globe size={16} aria-hidden="true" />;
+  return <Server size={16} aria-hidden="true" />;
+}
+
+function ServiceVisual({ service }: { service: Service }) {
+  const artwork = serverArtwork[service.id];
+  if (artwork) return <span className="service-visual has-artwork"><Image src={artwork.src} alt={artwork.alt} width={88} height={88} sizes="88px" /></span>;
+  const category = service.category.toLocaleLowerCase();
+  const Icon = service.kind === "fivem" ? Gamepad2 : category.includes("discord") ? Bot : category.includes("website") ? Globe : Server;
+  return <span className="service-visual"><Icon size={25} aria-hidden="true" /></span>;
+}
 
 const rangeLabels: Record<Range, string> = { "1h": "1 uur", "24h": "24 uur", "7d": "7 dagen" };
 const preferenceKey = "amrp-status-dashboard-v1";
@@ -473,16 +494,17 @@ export default function Home() {
             <section className="service-section" key={group}>
               <div className="section-heading service-group-heading-row">
                 <h2 className="service-group-heading"><button type="button" className="service-group-toggle" aria-expanded={!collapsed} aria-label={`${group}: ${groupOnlineCount} van ${groupServices.length} online`} onClick={() => setCollapsedGroups((current) => ({ ...current, [group]: !current[group] }))}>
-                  <ChevronDown className="service-group-chevron" size={19} aria-hidden="true" />
+                  <span className="service-group-icon"><CategorySymbol category={group} /></span>
                   <span className="service-group-title">{group}</span>
+                  <span className={`group-summary is-${groupStatus}`}>{groupOnlineCount}/{groupServices.length} online</span>
+                  <ChevronDown className="service-group-chevron" size={19} aria-hidden="true" />
                 </button></h2>
-                <span className="section-count">{groupServices.length} diensten</span>
-                <span className={`group-summary is-${groupStatus}`}>{groupOnlineCount}/{groupServices.length} online</span>
               </div>
               {!collapsed && <div className="service-list">
               {groupServices.map((service) => (
                 <article className="service-row" key={service.id}>
                   <div className="service-main">
+                    <ServiceVisual service={service} />
                     <div className="service-name-wrap">
                       <div className="service-name-heading"><span className="service-name">{service.name}</span><span className={`status-pill is-${service.status}`}><span className="pill-dot" />{statusLabels[service.status]}</span></div>
                       {service.status === "operational" || service.status === "unknown" ? <span className="service-message">{service.status === "unknown" ? "Deze dienst is nog niet gecontroleerd." : `Reageert normaal${service.responseMs !== null ? ` · ${service.responseMs} ms` : ""}`}</span> : (
