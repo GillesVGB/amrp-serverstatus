@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
-import { Moon, Sun } from "lucide-react";
+import { Monitor, Moon, Sun } from "lucide-react";
+
+type ThemeMode = "light" | "dark" | "system";
 
 const THEME_KEY = "amrp-status-theme";
 const THEME_EVENT = "amrp-status-theme-change";
+let fallbackTheme: ThemeMode = "system";
 
 function subscribe(callback: () => void) {
   window.addEventListener(THEME_EVENT, callback);
@@ -15,30 +18,41 @@ function subscribe(callback: () => void) {
   };
 }
 
-function getSnapshot(): "light" | "dark" {
-  return window.localStorage.getItem(THEME_KEY) === "dark" ? "dark" : "light";
+function getSnapshot(): ThemeMode {
+  try {
+    const stored = window.localStorage.getItem(THEME_KEY);
+    return stored === "light" || stored === "dark" ? stored : "system";
+  } catch {
+    return fallbackTheme;
+  }
 }
 
-function getServerSnapshot(): "light" {
-  return "light";
+function getServerSnapshot(): ThemeMode {
+  return "system";
 }
 
 export function ThemeToggle() {
-  const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const mode = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const applyTheme = () => { document.documentElement.dataset.theme = mode === "system" ? (media.matches ? "dark" : "light") : mode; };
+    applyTheme();
+    if (mode !== "system") return;
+    media.addEventListener("change", applyTheme);
+    return () => media.removeEventListener("change", applyTheme);
+  }, [mode]);
 
   function toggle() {
-    const next = theme === "light" ? "dark" : "light";
-    window.localStorage.setItem(THEME_KEY, next);
+    const next: ThemeMode = mode === "system" ? "light" : mode === "light" ? "dark" : "system";
+    fallbackTheme = next;
+    try { window.localStorage.setItem(THEME_KEY, next); } catch { /* Keep the selected theme for this page when storage is unavailable. */ }
     window.dispatchEvent(new Event(THEME_EVENT));
   }
 
-  return (
-    <button className="theme-toggle" type="button" onClick={toggle} aria-label={theme === "light" ? "Donker thema inschakelen" : "Licht thema inschakelen"} title={theme === "light" ? "Donker thema" : "Licht thema"}>
-      {theme === "light" ? <Moon size={17} /> : <Sun size={17} />}
-    </button>
-  );
+  const modeLabels: Record<ThemeMode, string> = { system: "Systeem", light: "Licht", dark: "Donker" };
+  const nextLabels: Record<ThemeMode, string> = { system: "licht", light: "donker", dark: "systeem" };
+  return <button className="theme-toggle" type="button" onClick={toggle} aria-label={`Thema ${modeLabels[mode]}. Klik om ${nextLabels[mode]} te kiezen.`} title={`Thema: ${modeLabels[mode]}`}>
+    {mode === "system" ? <Monitor size={17} /> : mode === "light" ? <Moon size={17} /> : <Sun size={17} />}
+  </button>;
 }
