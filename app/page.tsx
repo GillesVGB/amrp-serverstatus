@@ -64,8 +64,9 @@ function CategorySymbol({ category }: { category: string }) {
 }
 
 function ServiceVisual({ service }: { service: Service }) {
+  if (service.kind === "fivem") return <span className="service-visual"><Image src="/amsterdam-logo.png" alt="" width={36} height={36} sizes="36px" /></span>;
   const category = service.category.toLocaleLowerCase();
-  const Icon = service.kind === "fivem" ? Gamepad2 : category.includes("discord") ? Bot : category.includes("website") ? Globe : Server;
+  const Icon = category.includes("discord") ? Bot : category.includes("website") ? Globe : Server;
   return <span className="service-visual"><Icon size={21} aria-hidden="true" /></span>;
 }
 
@@ -369,7 +370,7 @@ export default function Home() {
     <main className="page-shell" data-density={preferences.density}>
       <header className="topbar">
         <Link className="brand" href="/" aria-label="Amsterdam Roleplay status">
-          <Image src="/amsterdam-mark.svg" alt="" width={36} height={58} className="brand-mark" priority />
+          <Image src="/amsterdam-logo.png" alt="" width={44} height={44} className="brand-mark" priority />
           <span className="brand-copy"><span className="brand-title">Amsterdam RP</span><span className="brand-subtitle">Systeemstatus</span></span>
         </Link>
         <div className="topbar-right">
