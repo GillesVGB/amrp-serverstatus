@@ -214,7 +214,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [openDetails, setOpenDetails] = useState<string | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
-  const [activeIncidentsCollapsed, setActiveIncidentsCollapsed] = useState(false);
+  const [activeIncidentsCollapsed, setActiveIncidentsCollapsed] = useState(true);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [preferences, setPreferences] = useState<DashboardPreferences>(defaultPreferences);
@@ -378,7 +378,7 @@ export default function Home() {
     <main className="page-shell" data-density={preferences.density}>
       <header className="topbar">
         <Link className="brand" href="/" aria-label="Amsterdam Roleplay status">
-          <Image src="/amsterdam-logo.png" alt="" width={48} height={48} className="brand-mark" priority />
+          <Image src="/amsterdam-mark.svg" alt="" width={36} height={58} className="brand-mark" priority />
           <span className="brand-copy"><span className="brand-title">Amsterdam RP</span><span className="brand-subtitle">Systeemstatus</span></span>
         </Link>
         <div className="topbar-right">
@@ -443,9 +443,9 @@ export default function Home() {
         </article>)}</div>
       </section>}
 
-      {activeIncidents.length > 0 && <section className={`active-incidents ${activeIncidents.some((incident) => incident.status === "down") ? "has-outage" : "has-warning"}`} aria-labelledby="active-incidents-title" id="active-incidents-section">
+      {activeIncidents.length > 0 && <section className={`active-incidents ${activeIncidents.some((incident) => incident.status === "down") ? "has-outage" : "has-warning"}${activeIncidentsCollapsed ? " is-collapsed" : ""}`} aria-labelledby="active-incidents-title" id="active-incidents-section">
         <h2 className="active-incidents-heading" id="active-incidents-title"><button type="button" className="active-incidents-toggle" aria-expanded={!activeIncidentsCollapsed} aria-controls="active-incident-list" onClick={() => setActiveIncidentsCollapsed((collapsed) => !collapsed)}>
-          <ShieldAlert size={17} aria-hidden="true" /><span>Actieve incidenten</span><span className="active-incidents-count">{activeIncidents.length} actief</span><ChevronDown className="active-incidents-chevron" size={16} aria-hidden="true" />
+          <ShieldAlert size={17} aria-hidden="true" /><span>Actieve incidenten</span><span className="active-incidents-summary">{activeIncidents.map((incident) => incident.serviceName).join(" · ")}</span><span className="active-incidents-count">{activeIncidents.length} actief</span><ChevronDown className="active-incidents-chevron" size={16} aria-hidden="true" />
         </button></h2>
         <div className="active-incident-list" id="active-incident-list" hidden={activeIncidentsCollapsed}>
           {activeIncidents.map((incident) => (
