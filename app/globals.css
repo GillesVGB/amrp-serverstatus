@@ -245,33 +245,6 @@ html,body{background:var(--canvas)}
 @media(max-width:620px){.status-intro{min-height:auto;margin-bottom:16px;padding:4px 0 14px}.status-intro::after{display:none}.status-intro h1{font-size:28px}.overall-banner{align-items:flex-start;flex-wrap:wrap}.overall-meta{width:100%;margin-left:57px}.overview-kpis{gap:7px}.overview-kpi{min-height:84px;padding:11px}.kpi-symbol{width:29px;height:29px;border-radius:9px}.service-browser-heading{gap:10px}.service-browser-controls{flex-direction:column-reverse}.history-in-browser{gap:11px}.history-in-browser .history-dashboard-copy{min-width:100%}.history-in-browser .history-toolbar{width:100%;justify-content:space-between}.history-control-set{min-width:0}.history-control-options button{padding:0 8px}.service-list{grid-template-columns:1fr}.service-row{padding:15px}.service-browser{padding:16px 13px 3px}}
 @media(prefers-reduced-motion:reduce){.service-row,.overview-kpi{transition:none}}
 
-/* Keep the landing page close to the Amsterdam status reference. */
-:root{--canvas:#fbfcfe}
-.brand-mark{width:34px;height:58px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;object-fit:contain}
-.status-intro::after{background-image:url("/amsterdam-waterfront.svg");opacity:.78}
-.active-incidents{margin:0 0 17px;padding:12px 16px;border-radius:12px}
-.active-incidents-heading{margin:0}
-.active-incidents:not(.is-collapsed) .active-incidents-heading{margin-bottom:8px}
-.active-incidents-summary{min-width:0;margin-left:10px;overflow:hidden;color:#8b7275;font-size:10px;font-weight:500;text-overflow:ellipsis;white-space:nowrap}
-.active-incidents.has-warning .active-incidents-summary{color:#8b754e}
-.active-incidents-count{flex:0 0 auto}
-:root[data-theme="dark"] .brand-mark{border:0;background:transparent;box-shadow:none}
-:root[data-theme="dark"] .active-incidents-summary{color:#d0a9aa}
-:root[data-theme="dark"] .active-incidents.has-warning .active-incidents-summary{color:#dbc38e}
-@media(min-width:1400px){.overall-banner{width:79%}}
-@media(min-width:761px){.overall-banner:after{display:none}.overall-copy{flex:1}.overall-meta{flex-direction:row;align-items:center;gap:18px;min-width:0;margin-left:auto;padding-left:20px;border-left:1px solid #dce6f3}.monitor-pulse{min-width:0;padding:0;border:0;border-radius:0;background:transparent}.monitor-pulse strong{font-size:11px}.monitor-pulse small{font-size:10px}.overall-time{display:flex;align-items:center;gap:7px;min-height:34px;padding-left:18px;border-left:1px solid #dce6f3;white-space:nowrap}}
-@media(max-width:900px) and (min-width:761px){.overall-meta{flex-direction:column;align-items:flex-start;padding-left:15px;gap:6px}.overall-time{padding-left:0;border-left:0}}
-@media(max-width:760px){.overall-meta{width:100%;flex-direction:row;flex-wrap:wrap;margin-left:52px;padding-left:0;border-left:0}.overall-time{min-height:0;padding-left:10px;border-left:1px solid #dce6f3}}
-@media(max-width:620px){.overall-meta{margin-left:0;gap:10px}.overall-time{padding-left:0;border-left:0}}
-@media(max-width:760px){.brand-mark{width:29px;height:48px}.brand{gap:10px}.active-incidents-summary{display:none}}
-.status-intro{margin-bottom:25px}
-.overall-icon{width:56px;height:56px;flex-basis:56px;margin-right:29px;box-shadow:0 0 0 9px #deeee4,0 7px 17px #25ad6b30}
-.overall-copy{padding-left:23px;border-left:1px solid #dce6f3}
-.state-down .overall-icon{box-shadow:0 0 0 9px #f7dfe0,0 7px 17px #df585c30}
-.state-degraded .overall-icon,.state-maintenance .overall-icon{box-shadow:0 0 0 9px #f7edda,0 7px 17px #d99b2e30}
-@media(max-width:760px){.status-intro{margin-bottom:16px}.overall-icon{width:42px;height:42px;flex-basis:42px;margin-right:0;box-shadow:0 0 0 6px #deeee4,0 6px 14px #25ad6b25}.overall-copy{padding-left:0;border-left:0}.state-down .overall-icon{box-shadow:0 0 0 6px #f7dfe0,0 6px 14px #df585c25}.state-degraded .overall-icon,.state-maintenance .overall-icon{box-shadow:0 0 0 6px #f7edda,0 6px 14px #d99b2e25}}
-@media(max-width:620px){.overall-icon{width:42px;height:42px;flex-basis:42px}}
-
 /* Independently managed public announcements and their admin controls. */
 .public-announcements{margin:0 0 20px;padding:16px 18px;border:1px solid #cbdcf2;border-left:3px solid #4b7fc7;border-radius:13px;background:linear-gradient(115deg,#f8fbff 0%,#f0f6ff 100%);box-shadow:0 8px 22px #203b6007}
 .public-announcements-heading{display:flex;align-items:center;gap:11px;margin-bottom:10px}.public-announcements-icon{width:34px;height:34px;display:grid;place-items:center;border:1px solid #d7e5f7;border-radius:10px;background:#fff;color:#356fca}.public-announcements-heading .eyebrow{margin:0 0 3px;color:#6688b6;font-size:8px}.public-announcements-heading h2{margin:0;color:#213a5c;font-size:14px;font-weight:730;letter-spacing:-.02em}.public-announcements-heading h2>span{display:inline-grid;min-width:19px;height:19px;place-items:center;margin-left:4px;border-radius:999px;background:#e2edfb;color:#416da8;font-size:9px;vertical-align:2px}
@@ -473,3 +446,32 @@ html,body{background:var(--canvas)}
 @media(max-width:760px){.page-shell{width:min(100% - 32px,1440px);padding-bottom:36px}.topbar{height:75px;margin-bottom:18px}.brand-title{font-size:16px}.brand-mark{width:38px;height:38px}.live-indicator{height:32px;padding:0 9px;font-size:0}.status-intro{min-height:0;margin-bottom:16px;padding:0 0 8px}.status-intro h1{font-size:34px}.intro-text{font-size:14px}.status-intro::after{top:0;width:45%;height:135px;opacity:.3}.overall-banner{min-height:0;margin-bottom:18px;padding:16px}.overall-icon{width:42px;height:42px;flex-basis:42px}.overall-copy strong{font-size:18px}.overall-copy>span:not(.overall-label){font-size:11px}.monitor-pulse{min-width:0}.overview-kpis{gap:10px;margin-bottom:20px}.overview-kpi{min-height:94px;grid-template-columns:48px minmax(0,1fr);grid-template-rows:19px 1fr 14px;column-gap:10px;padding:12px}.kpi-label{font-size:10px}.overview-kpi>strong{font-size:24px}.kpi-hint{font-size:8px}.kpi-symbol{width:44px;height:44px}.kpi-symbol svg{width:18px;height:18px}.kpi-meter{right:36px;bottom:10px;left:70px;height:4px}.kpi-percent{right:10px;bottom:4px;font-size:9px}.service-browser{padding:17px 15px 5px}.service-list{grid-template-columns:minmax(0,1fr);gap:10px}.service-row{gap:12px;padding:14px}.service-main{grid-template-columns:64px minmax(0,1fr);gap:11px}.service-visual{width:64px;height:64px;flex-basis:64px}.service-name{font-size:14px}.service-message{font-size:11px}.status-pill{min-height:30px;height:30px;padding:0 9px;font-size:10px}.service-extra{grid-template-columns:minmax(145px,.55fr) minmax(0,1.45fr);gap:11px;padding-top:11px}.players-count{gap:6px}.players-count-label{font-size:10px}.players-count-value strong{font-size:18px}.players-count-value small{font-size:10px}.service-extra .uptime-bars{height:18px;gap:2px}.service-extra .uptime-bar{height:16px;max-width:6px}.service-extra .uptime-labels{margin-top:6px;font-size:9px}}
 @media(max-width:620px){.page-shell{width:min(100% - 24px,1440px)}.status-intro h1{font-size:29px}.status-intro::after{display:none}.overall-banner{align-items:flex-start;flex-wrap:wrap}.overall-meta{width:100%;margin-left:52px}.overview-kpis{gap:6px}.overview-kpi{min-height:78px;grid-template-columns:1fr auto;grid-template-rows:17px 1fr;column-gap:4px;padding:9px 7px}.kpi-label{grid-column:1;grid-row:1;font-size:8px}.overview-kpi>strong{grid-column:1;grid-row:2;font-size:20px}.kpi-hint{display:none}.kpi-symbol{grid-column:2;grid-row:1/3;width:25px;height:25px;border-radius:8px}.kpi-symbol svg{width:14px;height:14px}.kpi-meter{right:29px;bottom:6px;left:7px;height:3px}.kpi-percent{display:none}.service-extra{grid-template-columns:minmax(105px,.62fr) minmax(0,1.38fr);gap:8px}.players-count-copy{align-items:flex-start;flex-direction:column;gap:1px}.players-count-label{font-size:9px}.players-count-value strong{font-size:17px}.service-extra .uptime-bar{max-width:5px}}
 @media(prefers-reduced-motion:reduce){.service-row,.overview-kpi{transition:none}}
+
+/* Final desktop and mobile alignment for the Amsterdam status reference. */
+:root{--canvas:#fbfcfe}
+.brand-mark{width:36px;height:58px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;object-fit:contain}
+.status-intro{margin-bottom:25px}
+.status-intro::after{background-image:url("/amsterdam-waterfront.svg");opacity:.78}
+.overall-banner:after{display:none}
+.overall-icon{width:56px;height:56px;flex-basis:56px;margin-right:29px;box-shadow:0 0 0 9px #deeee4,0 7px 17px #25ad6b30}
+.overall-copy{flex:1;padding-left:23px;border-left:1px solid #dce6f3}
+.state-down .overall-icon{box-shadow:0 0 0 9px #f7dfe0,0 7px 17px #df585c30}
+.state-degraded .overall-icon,.state-maintenance .overall-icon{box-shadow:0 0 0 9px #f7edda,0 7px 17px #d99b2e30}
+.overall-meta{flex-direction:row;align-items:center;gap:18px;min-width:0;margin-left:auto;padding-left:20px;border-left:1px solid #dce6f3}
+.monitor-pulse{min-width:0;padding:0;border:0;border-radius:0;background:transparent}
+.monitor-pulse strong{font-size:11px}
+.monitor-pulse small{font-size:10px}
+.overall-time{display:flex;align-items:center;gap:7px;min-height:34px;padding-left:18px;border-left:1px solid #dce6f3;white-space:nowrap}
+.active-incidents{margin:0 0 17px;padding:12px 16px;border-radius:12px}
+.active-incidents-heading{margin:0}
+.active-incidents:not(.is-collapsed) .active-incidents-heading{margin-bottom:8px}
+.active-incidents-summary{min-width:0;margin-left:10px;overflow:hidden;color:#8b7275;font-size:10px;font-weight:500;text-overflow:ellipsis;white-space:nowrap}
+.active-incidents.has-warning .active-incidents-summary{color:#8b754e}
+.active-incidents-count{flex:0 0 auto}
+:root[data-theme="dark"] .brand-mark{border:0;background:transparent;box-shadow:none}
+:root[data-theme="dark"] .active-incidents-summary{color:#d0a9aa}
+:root[data-theme="dark"] .active-incidents.has-warning .active-incidents-summary{color:#dbc38e}
+@media(min-width:1400px){.overall-banner{width:79%}}
+@media(max-width:900px) and (min-width:761px){.overall-meta{flex-direction:column;align-items:flex-start;padding-left:15px;gap:6px}.overall-time{padding-left:0;border-left:0}}
+@media(max-width:760px){.page-shell{width:min(100% - 32px,1440px);padding-bottom:36px}.brand-mark{width:29px;height:48px}.brand{gap:10px}.status-intro{min-height:0;margin-bottom:16px;padding:0 0 8px}.status-intro::after{top:0;width:45%;height:135px;opacity:.3}.status-intro h1{font-size:34px}.intro-text{font-size:14px}.overall-banner{min-height:0;margin-bottom:18px;padding:16px}.overall-icon{width:42px;height:42px;flex-basis:42px;margin-right:0;box-shadow:0 0 0 6px #deeee4,0 6px 14px #25ad6b25}.overall-copy{flex:1;padding-left:0;border-left:0}.state-down .overall-icon{box-shadow:0 0 0 6px #f7dfe0,0 6px 14px #df585c25}.state-degraded .overall-icon,.state-maintenance .overall-icon{box-shadow:0 0 0 6px #f7edda,0 6px 14px #d99b2e25}.overall-meta{width:100%;flex-direction:row;flex-wrap:wrap;margin-left:52px;padding-left:0;border-left:0}.overall-time{min-height:0;padding-left:10px;border-left:1px solid #dce6f3}.service-browser{padding:17px 15px 5px}.service-row{gap:12px;padding:14px}.service-list{grid-template-columns:minmax(0,1fr);gap:10px}.service-main{grid-template-columns:64px minmax(0,1fr);gap:11px}.service-visual{width:64px;height:64px;flex-basis:64px}.service-name{font-size:14px}.service-message{font-size:11px}.status-pill{min-height:30px;height:30px;padding:0 9px;font-size:10px}.service-extra{grid-template-columns:minmax(145px,.55fr) minmax(0,1.45fr);gap:11px;padding-top:11px}.players-count{gap:6px}.players-count-label{font-size:10px}.players-count-value strong{font-size:18px}.players-count-value small{font-size:10px}.service-extra .uptime-bars{height:18px;gap:2px}.service-extra .uptime-bar{height:16px;max-width:6px}.service-extra .uptime-labels{margin-top:6px;font-size:9px}.active-incidents-summary{display:none}}
+@media(max-width:620px){.page-shell{width:min(100% - 24px,1440px)}.status-intro{margin-bottom:16px}.status-intro h1{font-size:29px}.status-intro::after{display:none}.overall-banner{align-items:flex-start;flex-wrap:wrap}.overall-meta{margin-left:0;gap:10px}.overall-icon{width:42px;height:42px;flex-basis:42px}.overall-time{padding-left:0;border-left:0}.overview-kpis{gap:6px}.overview-kpi{min-height:78px;grid-template-columns:1fr auto;grid-template-rows:17px 1fr;column-gap:4px;padding:9px 7px}.kpi-label{grid-column:1;grid-row:1;font-size:8px}.overview-kpi>strong{grid-column:1;grid-row:2;font-size:20px}.kpi-hint{display:none}.kpi-symbol{grid-column:2;grid-row:1/3;width:25px;height:25px;border-radius:8px}.kpi-symbol svg{width:14px;height:14px}.kpi-meter{right:29px;bottom:6px;left:7px;height:3px}.kpi-percent{display:none}.service-extra{grid-template-columns:minmax(105px,.62fr) minmax(0,1.38fr);gap:8px}.players-count-copy{align-items:flex-start;flex-direction:column;gap:1px}.players-count-label{font-size:9px}.players-count-value strong{font-size:17px}.service-extra .uptime-bar{max-width:5px}}
