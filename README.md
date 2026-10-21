@@ -12,6 +12,10 @@ Bezoekers kunnen browsermeldingen op dit apparaat inschakelen. Daarvoor moet de 
 
 Open een dienst met storing of onderhoud via de knop eronder om de uitleg te lezen.
 
+### Discord-profielfoto in de footer
+
+Naast ‘by Gilles’ staat de Discord-profielfoto van account `960090714950225970`. De server haalt de avatar via Lanyard op en verwijst naar een kleine Discord CDN-afbeelding; er is geen bottoken nodig. Het account moet lid blijven van de Lanyard-server. De verwijzing wordt kort gecachet, waardoor een gewijzigde foto niet direct verschijnt. Bij een ontbrekende foto of een onbereikbare provider blijft alleen de klikbare naam zichtbaar. Discord-status en activiteiten worden niet op de website getoond.
+
 ## Vercel en Neon instellen
 
 Koppel de repository aan Vercel en laat Vercel het project herkennen als Next.js. De standaardbuild is `npm run build`; Vercel bouwt daarmee de Next.js-app en de serverroutes.

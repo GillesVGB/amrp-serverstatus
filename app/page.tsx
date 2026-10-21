@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Activity, ArrowUpRight, Bell, BellOff, Bot, ChartNoAxesColumn, Check, ChevronDown, CircleCheck, Clock3, Gamepad2, Globe, HeartPulse, Layers3, LayoutGrid, List, Megaphone, MessagesSquare, Radio, RefreshCw, Search, Server, Settings, ShieldAlert, ShieldCheck, TriangleAlert, WifiOff } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { CreatorCredit } from "@/components/creator-credit";
 
 type Status = "operational" | "degraded" | "down" | "unknown" | "maintenance";
 type MonitorStatus = "active" | "stale" | "unknown";
@@ -541,7 +542,7 @@ export default function Home() {
         ))}</div> : <div className="incident-empty"><Check size={16} /> Er zijn nog geen opgeloste incidenten.</div>}
       </details>}
 
-      <footer className="page-footer"><span><ShieldCheck size={15} /> Statusmetingen worden automatisch bijgewerkt.</span><nav className="footer-links" aria-label="Footer"><a className="creator-credit" href="https://discord.com/users/960090714950225970" target="_blank" rel="noopener noreferrer" aria-label="by Gilles — open Discord-profiel">by <strong>Gilles</strong></a><Link href="/admin">Beheer <ArrowUpRight size={13} /></Link></nav></footer>
+      <footer className="page-footer"><span><ShieldCheck size={15} /> Statusmetingen worden automatisch bijgewerkt.</span><nav className="footer-links" aria-label="Footer"><CreatorCredit /><Link href="/admin">Beheer <ArrowUpRight size={13} /></Link></nav></footer>
       <p className="footnote">Een dienst kan bereikbaar zijn terwijl de bijbehorende applicatie zelf een storing toont. Reactietijden zijn gemeten vanaf de statusdienst.</p>
     </main>
   );
