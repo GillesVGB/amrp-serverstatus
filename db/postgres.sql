@@ -40,8 +40,21 @@ CREATE TABLE IF NOT EXISTS amrp_status_monitor (
   last_successful_at DOUBLE PRECISION NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS amrp_status_announcements (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'notice' CHECK (kind IN ('outage', 'notice')),
+  affected_services JSONB NOT NULL DEFAULT '[]'::jsonb,
+  published SMALLINT NOT NULL DEFAULT 0 CHECK (published IN (0, 1)),
+  published_at DOUBLE PRECISION,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS amrp_status_services_enabled_category_idx ON amrp_status_services (enabled, category, name);
 CREATE INDEX IF NOT EXISTS amrp_status_history_checked_at_idx ON amrp_status_history (checked_at);
 CREATE UNIQUE INDEX IF NOT EXISTS amrp_status_incidents_open_service_idx ON amrp_status_incidents (service_id) WHERE resolved_at IS NULL;
 CREATE INDEX IF NOT EXISTS amrp_status_incidents_started_at_idx ON amrp_status_incidents (started_at DESC);
+CREATE INDEX IF NOT EXISTS amrp_status_announcements_published_idx ON amrp_status_announcements (published, published_at DESC);
 CREATE TABLE IF NOT EXISTS amrp_status_migrations (version TEXT PRIMARY KEY, applied_at BIGINT NOT NULL);

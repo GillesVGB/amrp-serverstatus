@@ -1,4 +1,4 @@
-import { getHistory, getMonitorHeartbeat, listIncidents, listServices, pruneHistory, recordHistory, recordIncidentState, type HistoryRange, type ServiceRow, type ServiceStatus } from "@/app/lib/server";
+import { getHistory, getMonitorHeartbeat, listAnnouncements, listIncidents, listServices, pruneHistory, recordHistory, recordIncidentState, type HistoryRange, type ServiceRow, type ServiceStatus } from "@/app/lib/server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -111,10 +111,10 @@ export async function GET(request: Request) {
         uptime,
       };
     }));
-    const incidents = await listIncidents();
+    const [incidents, announcements] = await Promise.all([listIncidents(), listAnnouncements()]);
     await pruneHistory(checkedAt - 7 * 24 * 60 * 60 * 1000);
     const monitorStatus = monitorCheckedAt === null ? "unknown" : Date.now() - monitorCheckedAt > 20_000 ? "stale" : "active";
-    return Response.json({ services: results, incidents, checkedAt, monitorCheckedAt, monitorStatus, range, checkIntervalSeconds: 5 }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate", Pragma: "no-cache", Expires: "0" } });
+    return Response.json({ services: results, incidents, announcements, checkedAt, monitorCheckedAt, monitorStatus, range, checkIntervalSeconds: 5 }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate", Pragma: "no-cache", Expires: "0" } });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Statuscontrole niet beschikbaar." }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }

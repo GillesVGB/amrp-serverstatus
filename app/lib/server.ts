@@ -23,11 +23,16 @@ export const DEFAULT_SERVICES: ServiceRow[] = [
 type HistoryRow = { status: ServiceStatus; checkedAt: number; message: string };
 export type IncidentRow = { id: number; serviceId: string; serviceName: string; status: ServiceStatus; reason: string; startedAt: number; resolvedAt: number | null };
 export type IncidentChange = { kind: "started" | "updated" | "recovered"; previousStatus?: ServiceStatus; incident: IncidentRow };
+export type AnnouncementService = { id: string; name: string };
+export type AnnouncementKind = "outage" | "notice";
+export type AnnouncementRow = { id: string; title: string; description: string; kind: AnnouncementKind; affectedServices: AnnouncementService[]; published: boolean; publishedAt: number | null; createdAt: number; updatedAt: number };
+export type AnnouncementInput = Omit<AnnouncementRow, "id" | "publishedAt" | "createdAt" | "updatedAt">;
 type NeonSql = import("@neondatabase/serverless").NeonQueryFunction<false, false>;
 let memoryServices: ServiceRow[] = DEFAULT_SERVICES.map((service) => ({ ...service }));
 const memoryHistory = new Map<string, HistoryRow[]>();
 const memoryIncidents = new Map<string, IncidentRow>();
 const memoryIncidentHistory: IncidentRow[] = [];
+const memoryAnnouncements: AnnouncementRow[] = [];
 let memoryMonitorHeartbeat: number | null = null;
 let schemaSetup: Promise<void> | undefined;
 let sqlSetup: Promise<NeonSql> | undefined;
@@ -94,6 +99,19 @@ async function ensureSchema() {
         id SMALLINT PRIMARY KEY CHECK (id = 1),
         last_successful_at DOUBLE PRECISION NOT NULL
       )`;
+      await sql`CREATE TABLE IF NOT EXISTS amrp_status_announcements (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL,
+        kind TEXT NOT NULL DEFAULT 'notice' CHECK (kind IN ('outage', 'notice')),
+        affected_services JSONB NOT NULL DEFAULT '[]'::jsonb,
+        published SMALLINT NOT NULL DEFAULT 0 CHECK (published IN (0, 1)),
+        published_at DOUBLE PRECISION,
+        created_at BIGINT NOT NULL,
+        updated_at BIGINT NOT NULL
+      )`;
+      await sql`ALTER TABLE amrp_status_announcements ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'notice' CHECK (kind IN ('outage', 'notice'))`;
+      await sql`CREATE INDEX IF NOT EXISTS amrp_status_announcements_published_idx ON amrp_status_announcements (published, published_at DESC)`;
       await sql`CREATE TABLE IF NOT EXISTS amrp_status_migrations (version TEXT PRIMARY KEY, applied_at BIGINT NOT NULL)`;
     })().catch((error) => {
       schemaSetup = undefined;
@@ -319,6 +337,91 @@ export async function listIncidents(limit = 20): Promise<IncidentRow[]> {
   return [...active, ...resolved].sort((left, right) => right.startedAt - left.startedAt);
 }
 
+function parseAnnouncementServices(value: unknown): AnnouncementService[] {
+  const parsed = typeof value === "string" ? JSON.parse(value) as unknown : value;
+  if (!Array.isArray(parsed)) return [];
+  return parsed.flatMap((item): AnnouncementService[] => {
+    if (!item || typeof item !== "object") return [];
+    const service = item as Record<string, unknown>;
+    const id = String(service.id ?? "").trim();
+    const name = String(service.name ?? "").trim();
+    return id && name ? [{ id, name }] : [];
+  });
+}
+
+export async function listAnnouncements(includeUnpublished = false): Promise<AnnouncementRow[]> {
+  if (!databaseUrl()) {
+    return memoryAnnouncements
+      .filter((announcement) => includeUnpublished || announcement.published)
+      .map((announcement) => ({ ...announcement, affectedServices: announcement.affectedServices.map((service) => ({ ...service })) }))
+      .sort((left, right) => (right.publishedAt ?? right.updatedAt) - (left.publishedAt ?? left.updatedAt));
+  }
+  await ensureSchema();
+  const sql = await sqlClient();
+  const rows = includeUnpublished
+    ? await sql`SELECT id, title, description, kind, affected_services AS "affectedServices", published, published_at AS "publishedAt", created_at AS "createdAt", updated_at AS "updatedAt" FROM amrp_status_announcements ORDER BY COALESCE(published_at, updated_at) DESC`
+    : await sql`SELECT id, title, description, kind, affected_services AS "affectedServices", published, published_at AS "publishedAt", created_at AS "createdAt", updated_at AS "updatedAt" FROM amrp_status_announcements WHERE published = 1 ORDER BY published_at DESC`;
+  return rows.map((row) => ({
+    id: String(row.id),
+    title: String(row.title),
+    description: String(row.description),
+    kind: row.kind === "outage" ? "outage" : "notice",
+    affectedServices: parseAnnouncementServices(row.affectedServices),
+    published: Number(row.published) === 1,
+    publishedAt: row.publishedAt === null ? null : Number(row.publishedAt),
+    createdAt: Number(row.createdAt),
+    updatedAt: Number(row.updatedAt),
+  }));
+}
+
+export async function saveAnnouncement(input: AnnouncementInput, id?: string): Promise<AnnouncementRow | null> {
+  const now = Date.now();
+  if (databaseUrl()) {
+    await ensureSchema();
+    const sql = await sqlClient();
+    const existing = id ? await sql`SELECT published_at AS "publishedAt" FROM amrp_status_announcements WHERE id = ${id}` : [];
+    if (id && !existing.length) return null;
+    const savedId = id ?? crypto.randomUUID();
+    const publishedAt = input.published ? (existing[0]?.publishedAt === null || existing[0]?.publishedAt === undefined ? now : Number(existing[0].publishedAt)) : null;
+    const rows = await sql.query(
+      `INSERT INTO amrp_status_announcements (id, title, description, kind, affected_services, published, published_at, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $8)
+       ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, description = EXCLUDED.description, kind = EXCLUDED.kind, affected_services = EXCLUDED.affected_services,
+         published = EXCLUDED.published, published_at = EXCLUDED.published_at, updated_at = EXCLUDED.updated_at
+       RETURNING id, title, description, kind, affected_services AS "affectedServices", published, published_at AS "publishedAt", created_at AS "createdAt", updated_at AS "updatedAt"`,
+      [savedId, input.title, input.description, input.kind, JSON.stringify(input.affectedServices), input.published ? 1 : 0, publishedAt, now],
+    );
+    const row = rows[0];
+    return row ? { id: String(row.id), title: String(row.title), description: String(row.description), kind: row.kind === "outage" ? "outage" : "notice", affectedServices: parseAnnouncementServices(row.affectedServices), published: Number(row.published) === 1, publishedAt: row.publishedAt === null ? null : Number(row.publishedAt), createdAt: Number(row.createdAt), updatedAt: Number(row.updatedAt) } : null;
+  }
+  const existing = id ? memoryAnnouncements.find((announcement) => announcement.id === id) : undefined;
+  if (id && !existing) return null;
+  const saved: AnnouncementRow = {
+    id: id ?? crypto.randomUUID(),
+    ...input,
+    affectedServices: input.affectedServices.map((service) => ({ ...service })),
+    publishedAt: input.published ? existing?.publishedAt ?? now : null,
+    createdAt: existing?.createdAt ?? now,
+    updatedAt: now,
+  };
+  if (existing) memoryAnnouncements.splice(memoryAnnouncements.indexOf(existing), 1, saved);
+  else memoryAnnouncements.unshift(saved);
+  return saved;
+}
+
+export async function deleteAnnouncement(id: string) {
+  if (databaseUrl()) {
+    await ensureSchema();
+    const sql = await sqlClient();
+    const rows = await sql`DELETE FROM amrp_status_announcements WHERE id = ${id} RETURNING id`;
+    return rows.length > 0;
+  }
+  const index = memoryAnnouncements.findIndex((announcement) => announcement.id === id);
+  if (index < 0) return false;
+  memoryAnnouncements.splice(index, 1);
+  return true;
+}
+
 export async function pruneHistory(before: number) {
   if (Date.now() - lastPrunedAt < 60 * 60 * 1000) return;
   lastPrunedAt = Date.now();
@@ -389,6 +492,27 @@ export function validateService(input: unknown): Omit<ServiceRow, "id"> {
     paused: value.paused === true || value.paused === 1 ? 1 : 0,
     maintenance: value.maintenance === true || value.maintenance === 1 ? 1 : 0,
     maintenanceMessage,
+  };
+}
+
+export function validateAnnouncement(input: unknown): Omit<AnnouncementInput, "affectedServices"> & { serviceIds: string[] } {
+  if (!input || typeof input !== "object") throw new Error("Vul de meldinggegevens in.");
+  const value = input as Record<string, unknown>;
+  const title = String(value.title ?? "").trim();
+  const description = String(value.description ?? "").trim();
+  const kind = value.kind === undefined ? "notice" : value.kind;
+  if (!title || title.length > 120) throw new Error("De titel moet 1 tot 120 tekens bevatten.");
+  if (!description || description.length > 5000) throw new Error("De beschrijving moet 1 tot 5000 tekens bevatten.");
+  if (kind !== "outage" && kind !== "notice") throw new Error("Kies storing of mededeling als type.");
+  if (!Array.isArray(value.serviceIds) || value.serviceIds.length > 100 || value.serviceIds.some((serviceId) => typeof serviceId !== "string" || !serviceId.trim())) {
+    throw new Error("Kies geldige getroffen diensten.");
+  }
+  return {
+    title,
+    description,
+    kind,
+    serviceIds: [...new Set(value.serviceIds.map((serviceId) => String(serviceId).trim()))],
+    published: value.published === true,
   };
 }
 

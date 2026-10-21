@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Activity, ArrowUpRight, Bell, BellOff, Check, ChevronDown, Clock3, LayoutGrid, List, Radio, RefreshCw, Search, Settings2, ShieldAlert, ShieldCheck, WifiOff } from "lucide-react";
+import { Activity, ArrowUpRight, Bell, BellOff, Check, ChevronDown, Clock3, LayoutGrid, List, Megaphone, Radio, RefreshCw, Search, Settings2, ShieldAlert, ShieldCheck, WifiOff } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 type Status = "operational" | "degraded" | "down" | "unknown" | "maintenance";
@@ -29,6 +29,7 @@ type DashboardPreferences = {
   uptimeView: UptimeView;
 };
 type Incident = { id: number; serviceId: string; serviceName: string; status: Status; reason: string; startedAt: number; resolvedAt: number | null };
+type Announcement = { id: string; title: string; description: string; kind: "outage" | "notice"; affectedServices: { id: string; name: string }[]; publishedAt: number | null };
 type Service = {
   id: string;
   name: string;
@@ -192,6 +193,7 @@ export default function Home() {
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const [activeIncidentsCollapsed, setActiveIncidentsCollapsed] = useState(false);
   const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [preferences, setPreferences] = useState<DashboardPreferences>(defaultPreferences);
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("name");
@@ -247,7 +249,7 @@ export default function Home() {
     try {
       const response = await fetch(`/api/status?range=${range}&t=${Date.now()}`, { cache: "no-store" });
       if (!response.ok) throw new Error("De status kon niet worden opgehaald.");
-      const payload = await response.json() as { services: Service[]; incidents: Incident[]; checkedAt: number; monitorCheckedAt?: number | null; monitorStatus?: MonitorStatus };
+      const payload = await response.json() as { services: Service[]; incidents: Incident[]; announcements?: Announcement[]; checkedAt: number; monitorCheckedAt?: number | null; monitorStatus?: MonitorStatus };
       const previous = previousStatuses.current;
       if (previous && typeof Notification !== "undefined" && Notification.permission === "granted" && localStorage.getItem("amrp_status_subscribed") === "true") {
         const changes = payload.services.filter((service) => previous[service.id] && previous[service.id] !== service.status && (service.status === "down" || service.status === "degraded" || service.status === "maintenance" || service.status === "operational"));
@@ -260,6 +262,7 @@ export default function Home() {
       previousStatuses.current = Object.fromEntries(payload.services.map((service) => [service.id, service.status]));
       setServices(payload.services);
       setIncidents(payload.incidents ?? []);
+      setAnnouncements(payload.announcements ?? []);
       setLastChecked(payload.checkedAt);
       setMonitorCheckedAt(payload.monitorCheckedAt ?? null);
       setMonitorStatus(payload.monitorStatus ?? "unknown");
@@ -403,6 +406,16 @@ export default function Home() {
         <button className={`overview-kpi kpi-total${preferences.statusFilter === "all" ? " is-active" : ""}`} type="button" onClick={() => updatePreference("statusFilter", "all")}><span className="kpi-label">Totaal diensten</span><strong>{loading ? "—" : activeServices.length}</strong><span className="kpi-hint">in de statuscontrole</span><span className="kpi-symbol"><Activity size={16} aria-hidden="true" /></span></button>
         <button className={`overview-kpi kpi-operational${preferences.statusFilter === "operational" ? " is-active" : ""}`} type="button" onClick={() => updatePreference("statusFilter", "operational")}><span className="kpi-label">Operationeel</span><strong>{loading ? "—" : onlineCount}</strong><span className="kpi-hint">reageren normaal</span><span className="kpi-symbol"><Check size={16} aria-hidden="true" /></span><span className="kpi-meter" role="progressbar" aria-label="Operationele diensten" aria-valuenow={availabilityPercent} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${availabilityPercent}%` }} /></span></button>
         <button className={`overview-kpi kpi-attention${preferences.statusFilter === "attention" ? " is-active" : ""}`} type="button" onClick={() => updatePreference("statusFilter", "attention")}><span className="kpi-label">Aandacht nodig</span><strong>{loading ? "—" : attentionCount}</strong><span className="kpi-hint">status is niet operationeel</span><span className="kpi-symbol"><ShieldAlert size={16} aria-hidden="true" /></span></button>
+      </section>}
+
+      {announcements.length > 0 && <section className="public-announcements" aria-labelledby="public-announcements-title">
+        <header className="public-announcements-heading"><span className="public-announcements-icon"><Megaphone size={17} aria-hidden="true" /></span><div><p className="eyebrow">BELANGRIJKE INFORMATIE</p><h2 id="public-announcements-title">Algemene storingen en mededelingen <span>{announcements.length}</span></h2></div></header>
+        <div className="public-announcement-list">{announcements.map((announcement) => <article className={`public-announcement-card is-${announcement.kind}`} key={announcement.id}>
+          <div className="public-announcement-copy"><div className="public-announcement-title"><div className="public-announcement-title-main"><span className={`public-announcement-kind is-${announcement.kind}`}>{announcement.kind === "outage" ? "Algemene storing" : "Mededeling"}</span><h3>{announcement.title}</h3></div>{announcement.publishedAt !== null && <time dateTime={new Date(announcement.publishedAt).toISOString()}><Clock3 size={12} aria-hidden="true" /> {new Date(announcement.publishedAt).toLocaleString("nl-NL", { dateStyle: "medium", timeStyle: "short" })}</time>}</div>
+            <p>{announcement.description}</p>
+            <div className="public-announcement-services"><strong>Getroffen diensten</strong>{announcement.affectedServices.length ? announcement.affectedServices.map((service) => <span key={service.id}>{service.name}</span>) : <span>Algemene mededeling</span>}</div>
+          </div>
+        </article>)}</div>
       </section>}
 
       {activeIncidents.length > 0 && <section className={`active-incidents ${activeIncidents.some((incident) => incident.status === "down") ? "has-outage" : "has-warning"}`} aria-labelledby="active-incidents-title" id="active-incidents-section">
