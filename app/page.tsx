@@ -55,11 +55,6 @@ const statusLabels: Record<Status, string> = {
   maintenance: "Onderhoud",
 };
 
-const serverArtwork: Record<string, { src: string; alt: string }> = {
-  "fivem-main": { src: "/fivem-main-city.png", alt: "Sfeerbeeld voor Main Game Server" },
-  "fivem-dev": { src: "/fivem-dev-city.png", alt: "Sfeerbeeld voor Dev Game Server" },
-};
-
 function CategorySymbol({ category }: { category: string }) {
   const normalized = category.toLocaleLowerCase();
   if (normalized.includes("fivem")) return <Gamepad2 size={16} aria-hidden="true" />;
@@ -69,11 +64,9 @@ function CategorySymbol({ category }: { category: string }) {
 }
 
 function ServiceVisual({ service }: { service: Service }) {
-  const artwork = serverArtwork[service.id];
-  if (artwork) return <span className="service-visual has-artwork"><Image src={artwork.src} alt={artwork.alt} width={88} height={88} sizes="88px" /></span>;
   const category = service.category.toLocaleLowerCase();
   const Icon = service.kind === "fivem" ? Gamepad2 : category.includes("discord") ? Bot : category.includes("website") ? Globe : Server;
-  return <span className="service-visual"><Icon size={25} aria-hidden="true" /></span>;
+  return <span className="service-visual"><Icon size={21} aria-hidden="true" /></span>;
 }
 
 const rangeLabels: Record<Range, string> = { "1h": "1 uur", "24h": "24 uur", "7d": "7 dagen" };
@@ -369,8 +362,6 @@ export default function Home() {
   });
   const overall = summarize(activeServices);
   const onlineCount = activeServices.filter((service) => service.status === "operational").length;
-  const availabilityPercent = activeServices.length ? Math.round((onlineCount / activeServices.length) * 100) : 0;
-  const checkedLabel = lastChecked ? new Date(lastChecked).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "wachten op eerste meting";
   const updatedAtLabel = lastChecked ? new Date(lastChecked).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }) : "—";
   const monitorCheckedLabel = monitorCheckedAt ? new Date(monitorCheckedAt).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "nog geen succesvolle controle";
 
@@ -382,14 +373,14 @@ export default function Home() {
           <span className="brand-copy"><span className="brand-title">Amsterdam RP</span><span className="brand-subtitle">Systeemstatus</span></span>
         </Link>
         <div className="topbar-right">
-          <span className="live-indicator"><span className="live-dot" />Laatst bijgewerkt: {updatedAtLabel}</span>
+          <span className="live-indicator"><span className="live-dot" /><span className="live-label">Laatst bijgewerkt:</span><time dateTime={lastChecked ? new Date(lastChecked).toISOString() : undefined}>{updatedAtLabel}</time></span>
           <details className="preferences-menu">
             <summary aria-label="Persoonlijke weergave-instellingen"><Settings size={17} /><span>Weergave</span></summary>
             <div className="preferences-panel">
               <div className="preferences-panel-heading"><strong>Persoonlijke weergave</strong><span>Wordt op dit apparaat bewaard.</span></div>
               <label className="preference-select"><span>Informatiedichtheid</span><select value={preferences.density} onChange={(event) => updatePreference("density", event.target.value as Density)}><option value="comfortable">Comfortabel</option><option value="compact">Compact</option><option value="visual">Visueel</option></select></label>
               <fieldset className="preference-fieldset"><legend>Overzichtsonderdelen</legend>
-                <label className="preference-check"><input type="checkbox" checked={preferences.showMetrics} onChange={(event) => updatePreference("showMetrics", event.target.checked)} />KPI-samenvatting</label>
+                <label className="preference-check"><input type="checkbox" checked={preferences.showMetrics} onChange={(event) => updatePreference("showMetrics", event.target.checked)} />Aantallen bij filters</label>
                 <label className="preference-check"><input type="checkbox" checked={preferences.showMonitor} onChange={(event) => updatePreference("showMonitor", event.target.checked)} />Monitorhartslag</label>
                 <label className="preference-check"><input type="checkbox" checked={preferences.showResolvedIncidents} onChange={(event) => updatePreference("showResolvedIncidents", event.target.checked)} />Incidentenoverzicht</label>
               </fieldset>
@@ -400,7 +391,7 @@ export default function Home() {
                 <button className={`notification-button${notificationsEnabled ? " is-enabled" : ""}`} type="button" onClick={() => void toggleNotifications()}>{notificationsEnabled ? <BellOff size={15} /> : <Bell size={15} />}{notificationsEnabled ? "Meldingen uitzetten" : "Volg statusmeldingen"}</button>
                 <a className="discord-link" href="https://amsterdamrp.nl/" target="_blank" rel="noreferrer">Amsterdam Roleplay <ArrowUpRight size={15} /></a>
               </div>
-              <p className="preferences-note">Je laatst gekozen kaart- of tabelweergave en filters worden je standaard.</p>
+              <p className="preferences-note">Je weergave en filters worden op dit apparaat bewaard.</p>
             </div>
           </details>
           <ThemeToggle />
@@ -416,25 +407,18 @@ export default function Home() {
       {notificationMessage && <p className="notification-message" role="status">{notificationMessage}</p>}
 
       <section className={`overall-banner state-${overall}`} aria-live="polite">
-        <span className="overall-icon">{overall === "operational" ? <Check size={20} /> : overall === "unknown" ? <Activity size={20} /> : overall === "maintenance" ? <Clock3 size={20} /> : <ShieldAlert size={20} />}</span>
+        <span className="overall-icon" aria-hidden="true">{overall === "operational" ? <CircleCheck size={26} /> : overall === "unknown" ? <Activity size={26} /> : overall === "maintenance" ? <Clock3 size={26} /> : <TriangleAlert size={26} />}</span>
         <div className="overall-copy">
-          <span className="overall-label">Huidige status</span>
           <strong>{loading ? "Status wordt gecontroleerd…" : overall === "operational" ? "Alle systemen operationeel" : overall === "unknown" ? "Niet alle systemen kunnen worden gecontroleerd" : overall === "maintenance" ? "Een of meer diensten zijn in onderhoud" : overall === "degraded" ? "Enkele systemen reageren niet volledig" : "Er is een storing"}</strong>
-          <span>{loading ? "De eerste meting duurt enkele seconden." : `${onlineCount} van ${activeServices.length} diensten operationeel · automatisch elke 5 seconden gecontroleerd`}</span>
+          <span>{loading ? "De eerste meting duurt enkele seconden." : `${onlineCount} van ${activeServices.length} diensten operationeel`}</span>
         </div>
-        <div className="overall-meta">{preferences.showMonitor && <div className={`monitor-pulse is-${monitorStatus}`} role="status"><Activity size={14} aria-hidden="true" /><span><strong>{monitorStatus === "active" ? "Monitor actief" : monitorStatus === "stale" ? "Monitor mogelijk uitgevallen" : "Monitor nog niet gezien"}</strong><small>Hartslag {monitorCheckedLabel}</small></span></div>}<span className="overall-time"><Clock3 size={14} /> Laatste meting {checkedLabel}</span></div>
+        {preferences.showMonitor && <div className="overall-meta"><div className={`monitor-pulse is-${monitorStatus}`} role="status"><Activity size={14} aria-hidden="true" /><span><strong>{monitorStatus === "active" ? "Monitor actief" : monitorStatus === "stale" ? "Monitor mogelijk uitgevallen" : "Monitor nog niet gezien"}</strong><small>Laatste hartslag {monitorCheckedLabel}</small></span></div></div>}
       </section>
 
       {error && <div className="error-banner" role="alert"><WifiOff size={17} /> {error}</div>}
 
-      {preferences.showMetrics && <section className="overview-kpis" aria-label="Samenvatting diensten" aria-busy={loading}>
-        <button className={`overview-kpi kpi-total${preferences.statusFilter === "all" ? " is-active" : ""}`} type="button" onClick={() => updatePreference("statusFilter", "all")}><span className="kpi-label">Totaal diensten</span><strong>{loading ? "—" : activeServices.length}</strong><span className="kpi-hint">in de statuscontrole</span><span className="kpi-symbol"><Layers3 size={22} aria-hidden="true" /></span></button>
-        <button className={`overview-kpi kpi-operational${preferences.statusFilter === "operational" ? " is-active" : ""}`} type="button" onClick={() => updatePreference("statusFilter", "operational")}><span className="kpi-label">Operationeel</span><strong>{loading ? "—" : onlineCount}</strong><span className="kpi-hint">reageren normaal</span><span className="kpi-symbol"><Check size={22} aria-hidden="true" /></span><span className="kpi-meter" role="progressbar" aria-label="Operationele diensten" aria-valuenow={availabilityPercent} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${availabilityPercent}%` }} /></span><span className="kpi-percent">{availabilityPercent}%</span></button>
-        <button className={`overview-kpi kpi-attention${preferences.statusFilter === "attention" ? " is-active" : ""}`} type="button" onClick={() => updatePreference("statusFilter", "attention")}><span className="kpi-label">Aandacht nodig</span><strong>{loading ? "—" : attentionCount}</strong><span className="kpi-hint">status is niet operationeel</span><span className="kpi-symbol"><TriangleAlert size={22} aria-hidden="true" /></span></button>
-      </section>}
-
       {announcements.length > 0 && <section className="public-announcements" aria-labelledby="public-announcements-title">
-        <header className="public-announcements-heading"><span className="public-announcements-icon"><Megaphone size={17} aria-hidden="true" /></span><div><p className="eyebrow">BELANGRIJKE INFORMATIE</p><h2 id="public-announcements-title">Algemene storingen en mededelingen <span>{announcements.length}</span></h2></div></header>
+        <header className="public-announcements-heading"><span className="public-announcements-icon"><Megaphone size={17} aria-hidden="true" /></span><h2 id="public-announcements-title">Algemene storingen en mededelingen <span>{announcements.length}</span></h2></header>
         <div className="public-announcement-list">{announcements.map((announcement) => <article className={`public-announcement-card is-${announcement.kind}`} key={announcement.id}>
           <div className="public-announcement-copy"><div className="public-announcement-title"><div className="public-announcement-title-main"><span className={`public-announcement-kind is-${announcement.kind}`}>{announcement.kind === "outage" ? "Algemene storing" : "Mededeling"}</span><h3>{announcement.title}</h3></div>{announcement.publishedAt !== null && <time dateTime={new Date(announcement.publishedAt).toISOString()}><Clock3 size={12} aria-hidden="true" /> {new Date(announcement.publishedAt).toLocaleString("nl-NL", { dateStyle: "medium", timeStyle: "short" })}</time>}</div>
             <p>{announcement.description}</p>
@@ -465,13 +449,13 @@ export default function Home() {
         <div className="service-browser-heading"><div className="service-browser-title"><Layers3 size={23} aria-hidden="true" /><h2 id="services-title">Diensten</h2></div>
           <div className="service-browser-controls">
             <div className="service-view-switch" role="group" aria-label="Kies dienstenweergave">
-              <button type="button" className={preferences.serviceView === "cards" ? "is-selected" : ""} aria-pressed={preferences.serviceView === "cards"} onClick={() => updatePreference("serviceView", "cards")}><LayoutGrid size={15} aria-hidden="true" /><span>Kaarten</span></button>
+              <button type="button" className={preferences.serviceView === "cards" ? "is-selected" : ""} aria-pressed={preferences.serviceView === "cards"} onClick={() => updatePreference("serviceView", "cards")}><LayoutGrid size={15} aria-hidden="true" /><span>Overzicht</span></button>
               <button type="button" className={preferences.serviceView === "table" ? "is-selected" : ""} aria-pressed={preferences.serviceView === "table"} onClick={() => updatePreference("serviceView", "table")}><List size={15} aria-hidden="true" /><span>Tabel</span></button>
             </div>
           </div>
         </div>
         <div className="service-filter-row"><label className="service-search"><Search size={16} aria-hidden="true" /><span className="sr-only">Zoek diensten</span><input type="search" value={preferences.searchQuery} onChange={(event) => updatePreference("searchQuery", event.target.value)} placeholder="Zoek een dienst…" /></label><div className="service-filters" role="group" aria-label="Filter diensten op status">
-          {([{ id: "all", label: "Alle", count: activeServices.length }, { id: "attention", label: "Aandacht", count: attentionCount }, { id: "operational", label: "Operationeel", count: onlineCount }] as const).map((filter) => <button key={filter.id} type="button" className={`filter-${filter.id}${preferences.statusFilter === filter.id ? " is-selected" : ""}`} aria-pressed={preferences.statusFilter === filter.id} onClick={() => updatePreference("statusFilter", filter.id)}>{filter.id === "all" ? <Layers3 size={14} aria-hidden="true" /> : filter.id === "attention" ? <TriangleAlert size={14} aria-hidden="true" /> : <CircleCheck size={14} aria-hidden="true" />}{filter.label}<span>{filter.count}</span></button>)}
+          {([{ id: "all", label: "Alle", count: activeServices.length }, { id: "attention", label: "Aandacht", count: attentionCount }, { id: "operational", label: "Operationeel", count: onlineCount }] as const).map((filter) => <button key={filter.id} type="button" className={`filter-${filter.id}${preferences.statusFilter === filter.id ? " is-selected" : ""}`} aria-pressed={preferences.statusFilter === filter.id} onClick={() => updatePreference("statusFilter", filter.id)}>{filter.id === "attention" ? <TriangleAlert size={14} aria-hidden="true" /> : filter.id === "operational" ? <CircleCheck size={14} aria-hidden="true" /> : null}{filter.label}{preferences.showMetrics && <span>{loading ? "—" : filter.count}</span>}</button>)}
         </div></div>
 
         <section className="history-dashboard history-in-browser" aria-labelledby="history-dashboard-title">
@@ -557,7 +541,7 @@ export default function Home() {
         ))}</div> : <div className="incident-empty"><Check size={16} /> Er zijn nog geen opgeloste incidenten.</div>}
       </details>}
 
-      <footer className="page-footer"><span><ShieldCheck size={15} /> Statusmetingen worden automatisch bijgewerkt.</span><span>Laatste controle: {checkedLabel}</span><Link href="/admin">Beheer <ArrowUpRight size={13} /></Link></footer>
+      <footer className="page-footer"><span><ShieldCheck size={15} /> Statusmetingen worden automatisch bijgewerkt.</span><nav className="footer-links" aria-label="Footer"><a className="creator-credit" href="https://discord.com/users/960090714950225970" target="_blank" rel="noopener noreferrer" aria-label="by Gilles — open Discord-profiel">by <strong>Gilles</strong></a><Link href="/admin">Beheer <ArrowUpRight size={13} /></Link></nav></footer>
       <p className="footnote">Een dienst kan bereikbaar zijn terwijl de bijbehorende applicatie zelf een storing toont. Reactietijden zijn gemeten vanaf de statusdienst.</p>
     </main>
   );
