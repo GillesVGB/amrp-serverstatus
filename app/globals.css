@@ -392,14 +392,16 @@ html,body{background:var(--canvas)}
 .brand-title{font-size:22px}
 .brand-subtitle{font-size:10px}
 .live-indicator{height:38px;padding:0 14px;font-size:12px}
-.status-intro{min-height:120px;margin-bottom:15px;padding:0 0 2px}
+.preferences-menu>summary{width:38px;height:38px;justify-content:center;padding:0}
+.preferences-menu>summary>span{display:none}
+.preferences-actions{display:flex;flex-direction:column;align-items:stretch;gap:7px;margin-top:8px;padding-top:8px;border-top:1px solid #e8edf4}
+.preferences-actions .notification-button{width:100%;justify-content:center}
+.preferences-actions .discord-link{align-self:center}
+.status-intro{min-height:106px;margin-bottom:15px;padding:9px 0 0}
 .status-intro .eyebrow{display:none}
 .status-intro-main{max-width:720px}
 .status-intro h1{font-size:47px;letter-spacing:-.055em}
 .intro-text{margin-top:7px;font-size:17px}
-.status-actions{gap:11px;margin-top:7px}
-.notification-button{height:32px;padding:0 10px;font-size:11px}
-.discord-link{padding:7px 2px;font-size:11px}
 .status-intro::after{top:-8px;right:-10px;width:59%;height:195px;background-image:url("/amsterdam-waterfront.svg");opacity:.9;mask-image:linear-gradient(90deg,transparent 0%,#000 23%)}
 .overall-banner{min-height:122px;margin-bottom:25px;padding:21px 27px;border-radius:15px}
 .overall-icon{width:54px;height:54px;flex-basis:54px;border-radius:50%}
@@ -410,7 +412,7 @@ html,body{background:var(--canvas)}
 .monitor-pulse small{font-size:10px}
 .overall-time{font-size:11px}
 .overview-kpis{gap:22px;margin-bottom:24px}
-.overview-kpi{min-height:112px;grid-template-columns:68px minmax(0,1fr);grid-template-rows:22px 1fr 18px;column-gap:18px;padding:17px 23px;border-radius:14px}
+.overview-kpi{min-height:114px;grid-template-columns:68px minmax(0,1fr);grid-template-rows:22px 1fr 18px;column-gap:18px;padding:17px 23px;border-radius:14px}
 .kpi-label{grid-column:2;grid-row:1;font-size:14px}
 .overview-kpi>strong{grid-column:2;grid-row:2;font-size:32px}
 .kpi-hint{grid-column:2;grid-row:3;font-size:11px}

@@ -7,7 +7,7 @@ type ThemeMode = "light" | "dark" | "system";
 
 const THEME_KEY = "amrp-status-theme";
 const THEME_EVENT = "amrp-status-theme-change";
-let fallbackTheme: ThemeMode = "system";
+let fallbackTheme: ThemeMode = "light";
 
 function subscribe(callback: () => void) {
   window.addEventListener(THEME_EVENT, callback);
@@ -21,14 +21,14 @@ function subscribe(callback: () => void) {
 function getSnapshot(): ThemeMode {
   try {
     const stored = window.localStorage.getItem(THEME_KEY);
-    return stored === "light" || stored === "dark" ? stored : "system";
+    return stored === "light" || stored === "dark" || stored === "system" ? stored : "light";
   } catch {
     return fallbackTheme;
   }
 }
 
 function getServerSnapshot(): ThemeMode {
-  return "system";
+  return "light";
 }
 
 export function ThemeToggle() {
@@ -53,6 +53,6 @@ export function ThemeToggle() {
   const modeLabels: Record<ThemeMode, string> = { system: "Systeem", light: "Licht", dark: "Donker" };
   const nextLabels: Record<ThemeMode, string> = { system: "licht", light: "donker", dark: "systeem" };
   return <button className="theme-toggle" type="button" onClick={toggle} aria-label={`Thema ${modeLabels[mode]}. Klik om ${nextLabels[mode]} te kiezen.`} title={`Thema: ${modeLabels[mode]}`}>
-    {mode === "system" ? <Monitor size={17} /> : mode === "light" ? <Moon size={17} /> : <Sun size={17} />}
+    {mode === "system" ? <Monitor size={17} /> : mode === "light" ? <Sun size={17} /> : <Moon size={17} />}
   </button>;
 }

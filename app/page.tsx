@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Activity, ArrowUpRight, Bell, BellOff, Bot, ChartNoAxesColumn, Check, ChevronDown, CircleCheck, Clock3, Gamepad2, Globe, HeartPulse, Layers3, LayoutGrid, List, Megaphone, MessagesSquare, Radio, RefreshCw, Search, Server, Settings2, ShieldAlert, ShieldCheck, TriangleAlert, WifiOff } from "lucide-react";
+import { Activity, ArrowUpRight, Bell, BellOff, Bot, ChartNoAxesColumn, Check, ChevronDown, CircleCheck, Clock3, Gamepad2, Globe, HeartPulse, Layers3, LayoutGrid, List, Megaphone, MessagesSquare, Radio, RefreshCw, Search, Server, Settings, ShieldAlert, ShieldCheck, TriangleAlert, WifiOff } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 type Status = "operational" | "degraded" | "down" | "unknown" | "maintenance";
@@ -384,7 +384,7 @@ export default function Home() {
         <div className="topbar-right">
           <span className="live-indicator"><span className="live-dot" />Laatst bijgewerkt: {updatedAtLabel}</span>
           <details className="preferences-menu">
-            <summary aria-label="Persoonlijke weergave-instellingen"><Settings2 size={16} /><span>Weergave</span></summary>
+            <summary aria-label="Persoonlijke weergave-instellingen"><Settings size={17} /><span>Weergave</span></summary>
             <div className="preferences-panel">
               <div className="preferences-panel-heading"><strong>Persoonlijke weergave</strong><span>Wordt op dit apparaat bewaard.</span></div>
               <label className="preference-select"><span>Informatiedichtheid</span><select value={preferences.density} onChange={(event) => updatePreference("density", event.target.value as Density)}><option value="comfortable">Comfortabel</option><option value="compact">Compact</option><option value="visual">Visueel</option></select></label>
@@ -396,6 +396,10 @@ export default function Home() {
               <fieldset className="preference-fieldset"><legend>Zichtbare tabelkolommen</legend>
                 {(Object.keys(serviceColumnLabels) as ServiceColumn[]).map((column) => <label className="preference-check" key={column}><input type="checkbox" checked={preferences.visibleColumns.includes(column)} disabled={column === "name"} onChange={() => toggleVisibleColumn(column)} />{serviceColumnLabels[column]}{column === "name" && <small>verplicht</small>}</label>)}
               </fieldset>
+              <div className="preferences-actions">
+                <button className={`notification-button${notificationsEnabled ? " is-enabled" : ""}`} type="button" onClick={() => void toggleNotifications()}>{notificationsEnabled ? <BellOff size={15} /> : <Bell size={15} />}{notificationsEnabled ? "Meldingen uitzetten" : "Volg statusmeldingen"}</button>
+                <a className="discord-link" href="https://amsterdamrp.nl/" target="_blank" rel="noreferrer">Amsterdam Roleplay <ArrowUpRight size={15} /></a>
+              </div>
               <p className="preferences-note">Je laatst gekozen kaart- of tabelweergave en filters worden je standaard.</p>
             </div>
           </details>
@@ -407,13 +411,7 @@ export default function Home() {
       </header>
 
       <div className="status-intro">
-        <div className="status-intro-main">
-          <p className="eyebrow">AMSTERDAM ROLEPLAY <span className="eyebrow-divider">/</span> LIVE STATUS</p><h1>Systeemstatus</h1><p className="intro-text">Live inzicht in onze FiveM-servers, websites en diensten.</p>
-          <div className="status-actions">
-            <button className={`notification-button${notificationsEnabled ? " is-enabled" : ""}`} type="button" onClick={() => void toggleNotifications()}>{notificationsEnabled ? <BellOff size={15} /> : <Bell size={15} />}{notificationsEnabled ? "Meldingen uitzetten" : "Volg statusmeldingen"}</button>
-            <a className="discord-link" href="https://amsterdamrp.nl/" target="_blank" rel="noreferrer">Amsterdam Roleplay <ArrowUpRight size={15} /></a>
-          </div>
-        </div>
+        <div className="status-intro-main"><h1>Systeemstatus</h1><p className="intro-text">Live inzicht in onze FiveM-servers, websites en diensten.</p></div>
       </div>
       {notificationMessage && <p className="notification-message" role="status">{notificationMessage}</p>}
 
@@ -432,7 +430,7 @@ export default function Home() {
       {preferences.showMetrics && <section className="overview-kpis" aria-label="Samenvatting diensten" aria-busy={loading}>
         <button className={`overview-kpi kpi-total${preferences.statusFilter === "all" ? " is-active" : ""}`} type="button" onClick={() => updatePreference("statusFilter", "all")}><span className="kpi-label">Totaal diensten</span><strong>{loading ? "—" : activeServices.length}</strong><span className="kpi-hint">in de statuscontrole</span><span className="kpi-symbol"><Layers3 size={22} aria-hidden="true" /></span></button>
         <button className={`overview-kpi kpi-operational${preferences.statusFilter === "operational" ? " is-active" : ""}`} type="button" onClick={() => updatePreference("statusFilter", "operational")}><span className="kpi-label">Operationeel</span><strong>{loading ? "—" : onlineCount}</strong><span className="kpi-hint">reageren normaal</span><span className="kpi-symbol"><Check size={22} aria-hidden="true" /></span><span className="kpi-meter" role="progressbar" aria-label="Operationele diensten" aria-valuenow={availabilityPercent} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${availabilityPercent}%` }} /></span><span className="kpi-percent">{availabilityPercent}%</span></button>
-        <button className={`overview-kpi kpi-attention${preferences.statusFilter === "attention" ? " is-active" : ""}`} type="button" onClick={() => updatePreference("statusFilter", "attention")}><span className="kpi-label">Aandacht nodig</span><strong>{loading ? "—" : attentionCount}</strong><span className="kpi-hint">status is niet operationeel</span><span className="kpi-symbol"><ShieldAlert size={16} aria-hidden="true" /></span></button>
+        <button className={`overview-kpi kpi-attention${preferences.statusFilter === "attention" ? " is-active" : ""}`} type="button" onClick={() => updatePreference("statusFilter", "attention")}><span className="kpi-label">Aandacht nodig</span><strong>{loading ? "—" : attentionCount}</strong><span className="kpi-hint">status is niet operationeel</span><span className="kpi-symbol"><TriangleAlert size={22} aria-hidden="true" /></span></button>
       </section>}
 
       {announcements.length > 0 && <section className="public-announcements" aria-labelledby="public-announcements-title">
