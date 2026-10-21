@@ -1,4 +1,4 @@
-import { getHistory, listIncidents, listServices, pruneHistory, recordHistory, recordIncidentState, type HistoryRange, type ServiceRow, type ServiceStatus } from "@/app/lib/server";
+import { getHistory, getMonitorHeartbeat, listIncidents, listServices, pruneHistory, recordHistory, recordIncidentState, type HistoryRange, type ServiceRow, type ServiceStatus } from "@/app/lib/server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -73,7 +73,7 @@ export async function GET(request: Request) {
   try {
     const requestedRange = new URL(request.url).searchParams.get("range") as HistoryRange | null;
     const range: HistoryRange = requestedRange && validRanges.includes(requestedRange) ? requestedRange : "1h";
-    const services = await listServices();
+    const [services, monitorCheckedAt] = await Promise.all([listServices(), getMonitorHeartbeat()]);
     const results = await Promise.all(services.map(async (service) => {
       const current: Probe = service.paused === 1
         ? { status: "down", message: "Deze dienst is gepauzeerd door een beheerder.", responseMs: null, players: null, maxPlayers: null }
@@ -113,7 +113,8 @@ export async function GET(request: Request) {
     }));
     const incidents = await listIncidents();
     await pruneHistory(checkedAt - 7 * 24 * 60 * 60 * 1000);
-    return Response.json({ services: results, incidents, checkedAt, range, checkIntervalSeconds: 5 }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate", Pragma: "no-cache", Expires: "0" } });
+    const monitorStatus = monitorCheckedAt === null ? "unknown" : Date.now() - monitorCheckedAt > 20_000 ? "stale" : "active";
+    return Response.json({ services: results, incidents, checkedAt, monitorCheckedAt, monitorStatus, range, checkIntervalSeconds: 5 }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate", Pragma: "no-cache", Expires: "0" } });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Statuscontrole niet beschikbaar." }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }

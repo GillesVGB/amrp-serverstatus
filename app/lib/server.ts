@@ -28,6 +28,7 @@ let memoryServices: ServiceRow[] = DEFAULT_SERVICES.map((service) => ({ ...servi
 const memoryHistory = new Map<string, HistoryRow[]>();
 const memoryIncidents = new Map<string, IncidentRow>();
 const memoryIncidentHistory: IncidentRow[] = [];
+let memoryMonitorHeartbeat: number | null = null;
 let schemaSetup: Promise<void> | undefined;
 let sqlSetup: Promise<NeonSql> | undefined;
 let lastPrunedAt = 0;
@@ -89,6 +90,10 @@ async function ensureSchema() {
       )`;
       await sql`CREATE UNIQUE INDEX IF NOT EXISTS amrp_status_incidents_open_service_idx ON amrp_status_incidents (service_id) WHERE resolved_at IS NULL`;
       await sql`CREATE INDEX IF NOT EXISTS amrp_status_incidents_started_at_idx ON amrp_status_incidents (started_at DESC)`;
+      await sql`CREATE TABLE IF NOT EXISTS amrp_status_monitor (
+        id SMALLINT PRIMARY KEY CHECK (id = 1),
+        last_successful_at DOUBLE PRECISION NOT NULL
+      )`;
       await sql`CREATE TABLE IF NOT EXISTS amrp_status_migrations (version TEXT PRIMARY KEY, applied_at BIGINT NOT NULL)`;
     })().catch((error) => {
       schemaSetup = undefined;
@@ -298,12 +303,20 @@ export async function listIncidents(limit = 20): Promise<IncidentRow[]> {
     const rows = await sql.query(
       `SELECT i.id, i.service_id AS "serviceId", COALESCE(s.name, i.service_id) AS "serviceName", i.status, i.reason,
         i.started_at AS "startedAt", i.resolved_at AS "resolvedAt"
-       FROM amrp_status_incidents i LEFT JOIN amrp_status_services s ON s.id = i.service_id
-       ORDER BY i.started_at DESC LIMIT $1`, [limit],
+       FROM (
+         SELECT * FROM amrp_status_incidents WHERE resolved_at IS NULL
+         UNION ALL
+         SELECT * FROM (
+           SELECT * FROM amrp_status_incidents WHERE resolved_at IS NOT NULL ORDER BY started_at DESC LIMIT $1
+         ) recent_resolved
+       ) i LEFT JOIN amrp_status_services s ON s.id = i.service_id
+       ORDER BY i.started_at DESC`, [limit],
     );
     return rows.map((row) => ({ id: Number(row.id), serviceId: String(row.serviceId), serviceName: String(row.serviceName), status: row.status as ServiceStatus, reason: String(row.reason), startedAt: Number(row.startedAt), resolvedAt: row.resolvedAt === null ? null : Number(row.resolvedAt) }));
   }
-  return memoryIncidentHistory.slice(0, limit);
+  const active = memoryIncidentHistory.filter((incident) => incident.resolvedAt === null);
+  const resolved = memoryIncidentHistory.filter((incident) => incident.resolvedAt !== null).slice(0, limit);
+  return [...active, ...resolved].sort((left, right) => right.startedAt - left.startedAt);
 }
 
 export async function pruneHistory(before: number) {
@@ -316,6 +329,26 @@ export async function pruneHistory(before: number) {
     return;
   }
   for (const [id, history] of memoryHistory) memoryHistory.set(id, history.filter((sample) => sample.checkedAt >= before));
+}
+
+export async function recordMonitorHeartbeat(checkedAt: number) {
+  if (databaseUrl()) {
+    await ensureSchema();
+    const sql = await sqlClient();
+    await sql`INSERT INTO amrp_status_monitor (id, last_successful_at) VALUES (1, ${checkedAt}) ON CONFLICT (id) DO UPDATE SET last_successful_at = EXCLUDED.last_successful_at`;
+    return;
+  }
+  memoryMonitorHeartbeat = checkedAt;
+}
+
+export async function getMonitorHeartbeat(): Promise<number | null> {
+  if (databaseUrl()) {
+    await ensureSchema();
+    const sql = await sqlClient();
+    const rows = await sql`SELECT last_successful_at FROM amrp_status_monitor WHERE id = 1`;
+    return rows.length ? Number(rows[0].last_successful_at) : null;
+  }
+  return memoryMonitorHeartbeat;
 }
 
 export function validateService(input: unknown): Omit<ServiceRow, "id"> {
