@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   }
 
   const url = new URL("/api/status?range=1h", request.url);
-  const response = await runStatusCheck(new Request(url, { method: "GET", headers: { "Cache-Control": "no-store" } }));
+  const response = await runStatusCheck(new Request(url, { method: "GET", headers: { "Cache-Control": "no-store", Authorization: `Bearer ${secret}` } }));
   const result = await response.json() as { checkedAt?: number; services?: unknown[]; error?: string };
   const heartbeatAt = response.ok ? Date.now() : null;
   if (heartbeatAt !== null) await recordMonitorHeartbeat(heartbeatAt);

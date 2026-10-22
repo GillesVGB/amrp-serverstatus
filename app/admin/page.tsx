@@ -11,6 +11,7 @@ const emptyDraft: Draft = { name: "", category: "Websites", kind: "website", end
 type AnnouncementService = { id: string; name: string };
 type Announcement = { id: string; title: string; description: string; kind: "outage" | "notice"; affectedServices: AnnouncementService[]; published: boolean; publishedAt: number | null; createdAt: number; updatedAt: number };
 type AnnouncementDraft = { title: string; description: string; kind: Announcement["kind"]; serviceIds: string[]; published: boolean };
+type SiteSettings = { maintenance: boolean; updatedAt: number | null };
 const emptyAnnouncementDraft: AnnouncementDraft = { title: "", description: "", kind: "notice", serviceIds: [], published: false };
 
 function formatAnnouncementDate(value: number) {
@@ -31,6 +32,7 @@ export default function AdminPage() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [pauseTarget, setPauseTarget] = useState<Service | null>(null);
+  const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
 
   const loadServices = useCallback(async () => {
     const response = await fetch("/api/services", { cache: "no-store" });
@@ -49,9 +51,17 @@ export default function AdminPage() {
     setAnnouncements(payload.announcements ?? []);
   }, []);
 
+  const loadSiteSettings = useCallback(async () => {
+    const response = await fetch("/api/admin/site-settings", { cache: "no-store" });
+    if (response.status === 401) { setAuthenticated(false); return; }
+    const payload = await response.json() as { settings?: SiteSettings; error?: string };
+    if (!response.ok || !payload.settings) throw new Error(payload.error || "Website-instellingen konden niet worden geladen.");
+    setSiteSettings(payload.settings);
+  }, []);
+
   const loadAdminData = useCallback(async () => {
-    await Promise.all([loadServices(), loadAnnouncements()]);
-  }, [loadAnnouncements, loadServices]);
+    await Promise.all([loadServices(), loadAnnouncements(), loadSiteSettings()]);
+  }, [loadAnnouncements, loadServices, loadSiteSettings]);
 
   useEffect(() => {
     void fetch("/api/admin/session", { cache: "no-store" }).then(async (response) => await response.json() as { authenticated: boolean }).then(async (result) => {
@@ -68,6 +78,26 @@ export default function AdminPage() {
       if (!response.ok) throw new Error(payload.error || "Inloggen mislukt.");
       setPassword(""); await loadAdminData();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Inloggen mislukt."); }
+    finally { setBusy(false); }
+  }
+
+  async function toggleSiteMaintenance() {
+    if (!siteSettings) return;
+    const maintenance = !siteSettings.maintenance;
+    if (maintenance && !window.confirm("De hele statuswebsite in onderhoud zetten? Bezoekers zien dan alleen een onderhoudspagina. Het beheerpanel blijft bereikbaar.")) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const response = await fetch("/api/admin/site-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ maintenance }),
+      });
+      const payload = await response.json() as { settings?: SiteSettings; error?: string };
+      if (response.status === 401) setAuthenticated(false);
+      if (!response.ok || !payload.settings) throw new Error(payload.error || "Onderhoudsstand wijzigen mislukt.");
+      setSiteSettings(payload.settings);
+      setNotice(payload.settings.maintenance ? "De statuswebsite is gesloten voor bezoekers. Je kunt het beheerpanel blijven gebruiken." : "De statuswebsite is weer openbaar.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Onderhoudsstand wijzigen mislukt."); }
     finally { setBusy(false); }
   }
 
@@ -198,7 +228,7 @@ export default function AdminPage() {
 
   async function logout() {
     await fetch("/api/admin/session", { method: "DELETE" });
-    setAuthenticated(false); setServices([]); setAnnouncements([]); setNotice("");
+    setAuthenticated(false); setServices([]); setAnnouncements([]); setSiteSettings(null); setNotice("");
   }
 
   if (authenticated === null) return <main className="admin-page"><div className="admin-loading"><LoaderCircle className="spin" /> Beheerpaneel laden…</div></main>;
@@ -229,6 +259,14 @@ export default function AdminPage() {
         {error && <p className="form-error notice" role="alert">{error}</p>}
         {notice && <p className="form-success notice" role="status"><Check size={16} /> {notice}</p>}
 
+        <section className="admin-panel site-access-panel" aria-labelledby="site-access-title">
+          <div className="panel-heading"><span className="panel-icon"><Wrench size={18} /></span><div><h2 id="site-access-title">Toegang tot de statuswebsite</h2><p>Sluit de hele website voor bezoekers tijdens onderhoud. Het beheerpanel en de achtergrondmonitor blijven werken.</p></div></div>
+          <div className="site-access-controls">
+            <div><strong>{siteSettings ? siteSettings.maintenance ? "Website in onderhoud" : "Website openbaar" : "Instellingen laden…"}</strong><p className="admin-muted">{siteSettings?.maintenance ? "Bezoekers zien alleen de onderhoudspagina. Als beheerder kun je de statuspagina nog bekijken." : "Bezoekers kunnen de diensten en meldingen bekijken."}</p></div>
+            <button type="button" className={siteSettings?.maintenance ? "primary-button" : "subtle-button"} onClick={() => void toggleSiteMaintenance()} disabled={busy || !siteSettings}><Wrench size={16} />{siteSettings?.maintenance ? "Website weer openen" : "Deze site in onderhoud plaatsen"}</button>
+          </div>
+        </section>
+
         <section className="admin-panel announcements-panel" aria-labelledby="announcements-admin-title">
           <div className="panel-heading"><span className="panel-icon"><Megaphone size={18} /></span><div><h2 id="announcements-admin-title">Algemene storing of mededeling <span className="small-count">{announcements.length}</span></h2><p>Publiceer een los bericht boven de actieve incidenten. Concepten zijn alleen zichtbaar in dit beheerpanel.</p></div></div>
           <form id="announcement-form" className="admin-form announcement-form" onSubmit={saveAnnouncement}>
@@ -237,6 +275,7 @@ export default function AdminPage() {
             <label className="wide-field">Uitgebreide beschrijving<textarea maxLength={5000} rows={5} placeholder="Leg uit wat er aan de hand is, wie er last van heeft en wat bezoekers kunnen verwachten." value={announcementDraft.description} onChange={(event) => setAnnouncementDraft({ ...announcementDraft, description: event.target.value })} required /></label>
             <fieldset className="announcement-service-fieldset wide-field">
               <legend>Getroffen diensten <span className="field-hint">Meerdere keuzes mogelijk. Laat leeg voor een algemene mededeling.</span></legend>
+              <p className="field-hint">{announcementDraft.kind === "outage" ? "Bij publicatie krijgen de geselecteerde diensten de status Storing (rood). Na intrekken of verwijderen wordt hun gemeten status weer gebruikt." : "Een mededeling wijzigt de status van de geselecteerde diensten niet."}</p>
               <div className="announcement-service-options">
                 {services.map((service) => <label key={service.id}><input type="checkbox" checked={announcementDraft.serviceIds.includes(service.id)} onChange={(event) => setAnnouncementDraft((current) => ({ ...current, serviceIds: event.target.checked ? [...current.serviceIds, service.id] : current.serviceIds.filter((id) => id !== service.id) }))} /><span>{service.name}<small>{service.category}</small></span></label>)}
                 {services.length === 0 && <span className="field-hint">Voeg eerst diensten toe om ze hier te kunnen selecteren.</span>}

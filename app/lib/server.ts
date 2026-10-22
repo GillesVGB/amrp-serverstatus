@@ -27,12 +27,14 @@ export type AnnouncementService = { id: string; name: string };
 export type AnnouncementKind = "outage" | "notice";
 export type AnnouncementRow = { id: string; title: string; description: string; kind: AnnouncementKind; affectedServices: AnnouncementService[]; published: boolean; publishedAt: number | null; createdAt: number; updatedAt: number };
 export type AnnouncementInput = Omit<AnnouncementRow, "id" | "publishedAt" | "createdAt" | "updatedAt">;
+export type SiteSettings = { maintenance: boolean; updatedAt: number | null };
 type NeonSql = import("@neondatabase/serverless").NeonQueryFunction<false, false>;
 let memoryServices: ServiceRow[] = DEFAULT_SERVICES.map((service) => ({ ...service }));
 const memoryHistory = new Map<string, HistoryRow[]>();
 const memoryIncidents = new Map<string, IncidentRow>();
 const memoryIncidentHistory: IncidentRow[] = [];
 const memoryAnnouncements: AnnouncementRow[] = [];
+let memorySiteSettings: SiteSettings = { maintenance: false, updatedAt: null };
 let memoryMonitorHeartbeat: number | null = null;
 let schemaSetup: Promise<void> | undefined;
 let sqlSetup: Promise<NeonSql> | undefined;
@@ -112,6 +114,11 @@ async function ensureSchema() {
       )`;
       await sql`ALTER TABLE amrp_status_announcements ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'notice' CHECK (kind IN ('outage', 'notice'))`;
       await sql`CREATE INDEX IF NOT EXISTS amrp_status_announcements_published_idx ON amrp_status_announcements (published, published_at DESC)`;
+      await sql`CREATE TABLE IF NOT EXISTS amrp_status_site_settings (
+        id SMALLINT PRIMARY KEY CHECK (id = 1),
+        maintenance SMALLINT NOT NULL DEFAULT 0 CHECK (maintenance IN (0, 1)),
+        updated_at BIGINT NOT NULL
+      )`;
       await sql`CREATE TABLE IF NOT EXISTS amrp_status_migrations (version TEXT PRIMARY KEY, applied_at BIGINT NOT NULL)`;
     })().catch((error) => {
       schemaSetup = undefined;
@@ -119,6 +126,35 @@ async function ensureSchema() {
     });
   }
   await schemaSetup;
+}
+
+export async function getSiteSettings(): Promise<SiteSettings> {
+  if (!databaseUrl()) return { ...memorySiteSettings };
+  await ensureSchema();
+  const sql = await sqlClient();
+  const rows = await sql`SELECT maintenance, updated_at AS "updatedAt" FROM amrp_status_site_settings WHERE id = 1`;
+  const row = rows[0];
+  return row
+    ? { maintenance: Number(row.maintenance) === 1, updatedAt: Number(row.updatedAt) }
+    : { maintenance: false, updatedAt: null };
+}
+
+export async function saveSiteSettings(maintenance: boolean): Promise<SiteSettings> {
+  if (typeof maintenance !== "boolean") throw new Error("Ongeldige onderhoudsinstelling.");
+  const updatedAt = Date.now();
+  if (!databaseUrl()) {
+    memorySiteSettings = { maintenance, updatedAt };
+    return { ...memorySiteSettings };
+  }
+  await ensureSchema();
+  const sql = await sqlClient();
+  const rows = await sql`INSERT INTO amrp_status_site_settings (id, maintenance, updated_at)
+    VALUES (1, ${maintenance ? 1 : 0}, ${updatedAt})
+    ON CONFLICT (id) DO UPDATE SET maintenance = EXCLUDED.maintenance, updated_at = EXCLUDED.updated_at
+    RETURNING maintenance, updated_at AS "updatedAt"`;
+  const row = rows[0];
+  if (!row) throw new Error("De website-instellingen konden niet worden opgeslagen.");
+  return { maintenance: Number(row.maintenance) === 1, updatedAt: Number(row.updatedAt) };
 }
 
 export async function ensureSeeded() {

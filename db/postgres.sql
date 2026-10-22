@@ -52,6 +52,12 @@ CREATE TABLE IF NOT EXISTS amrp_status_announcements (
   updated_at BIGINT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS amrp_status_site_settings (
+  id SMALLINT PRIMARY KEY CHECK (id = 1),
+  maintenance SMALLINT NOT NULL DEFAULT 0 CHECK (maintenance IN (0, 1)),
+  updated_at BIGINT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS amrp_status_services_enabled_category_idx ON amrp_status_services (enabled, category, name);
 CREATE INDEX IF NOT EXISTS amrp_status_history_checked_at_idx ON amrp_status_history (checked_at);
 CREATE UNIQUE INDEX IF NOT EXISTS amrp_status_incidents_open_service_idx ON amrp_status_incidents (service_id) WHERE resolved_at IS NULL;

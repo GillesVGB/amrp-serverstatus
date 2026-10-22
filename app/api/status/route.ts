@@ -1,4 +1,5 @@
-import { getHistory, getMonitorHeartbeat, listAnnouncements, listIncidents, listServices, pruneHistory, recordHistory, recordIncidentState, type HistoryRange, type ServiceRow, type ServiceStatus } from "@/app/lib/server";
+import { getHistory, getMonitorHeartbeat, getSiteSettings, hasAdminSession, listAnnouncements, listIncidents, listServices, pruneHistory, recordHistory, recordIncidentState, type HistoryRange, type ServiceRow, type ServiceStatus } from "@/app/lib/server";
+import { getAnnouncedOutages } from "@/app/lib/announcement-status";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -71,6 +72,15 @@ async function sendDiscordAlert(serviceName: string, status: ServiceStatus, reas
 export async function GET(request: Request) {
   const checkedAt = Date.now();
   try {
+    const settings = await getSiteSettings();
+    const monitorSecret = process.env.MONITOR_SECRET;
+    const isMonitor = Boolean(monitorSecret) && request.headers.get("authorization") === `Bearer ${monitorSecret}`;
+    if (settings.maintenance && !isMonitor && !await hasAdminSession(request)) {
+      return Response.json({ maintenance: true, error: "De statuswebsite is tijdelijk in onderhoud." }, {
+        status: 503,
+        headers: { "Cache-Control": "no-store", "Retry-After": "60" },
+      });
+    }
     const requestedRange = new URL(request.url).searchParams.get("range") as HistoryRange | null;
     const range: HistoryRange = requestedRange && validRanges.includes(requestedRange) ? requestedRange : "1h";
     const [services, monitorCheckedAt] = await Promise.all([listServices(), getMonitorHeartbeat()]);
@@ -112,9 +122,13 @@ export async function GET(request: Request) {
       };
     }));
     const [incidents, announcements] = await Promise.all([listIncidents(), listAnnouncements()]);
+    const announcedOutages = getAnnouncedOutages(announcements);
+    const publicResults = results.map((service) => announcedOutages.has(service.id)
+      ? { ...service, status: "down" as const, message: announcedOutages.get(service.id)! }
+      : service);
     await pruneHistory(checkedAt - 7 * 24 * 60 * 60 * 1000);
     const monitorStatus = monitorCheckedAt === null ? "unknown" : Date.now() - monitorCheckedAt > 20_000 ? "stale" : "active";
-    return Response.json({ services: results, incidents, announcements, checkedAt, monitorCheckedAt, monitorStatus, range, checkIntervalSeconds: 5 }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate", Pragma: "no-cache", Expires: "0" } });
+    return Response.json({ services: publicResults, incidents, announcements, checkedAt, monitorCheckedAt, monitorStatus, range, checkIntervalSeconds: 5 }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate", Pragma: "no-cache", Expires: "0" } });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Statuscontrole niet beschikbaar." }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }

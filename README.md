@@ -12,6 +12,12 @@ Bezoekers kunnen browsermeldingen op dit apparaat inschakelen. Daarvoor moet de 
 
 Open een dienst met storing of onderhoud via de knop eronder om de uitleg te lezen.
 
+Een gepubliceerde **Algemene storing** zet de geselecteerde diensten op rood, inclusief de groepen, filters en totaalsamenvatting. Intrekken, verwijderen of een selectie aanpassen geeft de onderliggende gemeten status weer terug, tenzij er nog een andere gepubliceerde storing voor die dienst geldt. Mededelingen en concepten wijzigen geen dienststatus. Meetgeschiedenis en uptime blijven de technische controles weergeven; de algemene melding blijft losstaan van automatisch aangemaakte incidenten.
+
+### De hele statuswebsite in onderhoud zetten
+
+In `/admin` staat **Deze site in onderhoud plaatsen**. Na bevestiging krijgen bezoekers alleen een onderhoudspagina en geeft de openbare status-API geen dienstgegevens meer terug. Al geopende statuspagina's schakelen bij de volgende controle over. Het beheerpanel blijft bereikbaar; ingelogde beheerders kunnen de statuspagina bekijken en via **Website weer openen** het onderhoud beëindigen. De beveiligde achtergrondmonitor blijft meten. De instelling wordt in PostgreSQL bewaard, ook na een herstart of deploy. Zonder database geldt de bestaande tijdelijke lokale opslag. De onderhoudspagina controleert automatisch of de website weer is geopend.
+
 ### Discord-profielfoto in de footer
 
 Naast ‘by Gilles’ staat de Discord-profielfoto van account `960090714950225970`. De server haalt de avatar via Lanyard op en verwijst naar een kleine Discord CDN-afbeelding; er is geen bottoken nodig. Het account moet lid blijven van de Lanyard-server. De browser controleert de foto bij het openen, elke minuut zolang de pagina zichtbaar is en wanneer je terugkeert naar het tabblad. De fotoverwijzing wordt niet gecachet; de afbeelding verandert zodra Lanyard de nieuwe avatar doorgeeft. Bewegende avatars worden als geanimeerde WebP getoond, behalve bij de systeemvoorkeur voor minder beweging. Bij een tijdelijke fout blijft de laatst opgehaalde foto staan en volgt automatisch een nieuwe poging. Zonder profielfoto blijft alleen de klikbare naam zichtbaar. Discord-status en activiteiten worden niet op de website getoond.
