@@ -263,7 +263,7 @@ export default function AdminPage() {
           <div className="panel-heading"><span className="panel-icon"><Wrench size={18} /></span><div><h2 id="site-access-title">Toegang tot de statuswebsite</h2><p>Sluit de hele website voor bezoekers tijdens onderhoud. Het beheerpanel en de achtergrondmonitor blijven werken.</p></div></div>
           <div className="site-access-controls">
             <div><strong>{siteSettings ? siteSettings.maintenance ? "Website in onderhoud" : "Website openbaar" : "Instellingen laden…"}</strong><p className="admin-muted">{siteSettings?.maintenance ? "Bezoekers zien alleen de onderhoudspagina. Als beheerder kun je de statuspagina nog bekijken." : "Bezoekers kunnen de diensten en meldingen bekijken."}</p></div>
-            <button type="button" className={siteSettings?.maintenance ? "primary-button" : "subtle-button"} onClick={() => void toggleSiteMaintenance()} disabled={busy || !siteSettings}><Wrench size={16} />{siteSettings?.maintenance ? "Website weer openen" : "Deze site in onderhoud plaatsen"}</button>
+            <div className="site-access-actions"><button type="button" className={siteSettings?.maintenance ? "primary-button" : "subtle-button"} onClick={() => void toggleSiteMaintenance()} disabled={busy || !siteSettings}><Wrench size={16} />{siteSettings?.maintenance ? "Website weer openen" : "Deze site in onderhoud plaatsen"}</button><Link href="/admin/maintenance-preview" className="back-link">Onderhoudspagina bekijken</Link></div>
           </div>
         </section>
 

@@ -16,7 +16,9 @@ Een gepubliceerde **Algemene storing** zet de geselecteerde diensten op rood, in
 
 ### De hele statuswebsite in onderhoud zetten
 
-In `/admin` staat **Deze site in onderhoud plaatsen**. Na bevestiging krijgen bezoekers alleen een onderhoudspagina en geeft de openbare status-API geen dienstgegevens meer terug. Al geopende statuspagina's schakelen bij de volgende controle over. Het beheerpanel blijft bereikbaar; ingelogde beheerders kunnen de statuspagina bekijken en via **Website weer openen** het onderhoud beëindigen. De beveiligde achtergrondmonitor blijft meten. De instelling wordt in PostgreSQL bewaard, ook na een herstart of deploy. Zonder database geldt de bestaande tijdelijke lokale opslag. De onderhoudspagina controleert automatisch of de website weer is geopend.
+In `/admin` staat **Deze site in onderhoud plaatsen**. Na bevestiging krijgen bezoekers alleen een onderhoudspagina en geeft de openbare status-API geen dienstgegevens meer terug. Al geopende statuspagina's schakelen bij de volgende controle over. Het beheerpanel blijft bereikbaar; ingelogde beheerders kunnen de statuspagina bekijken en via **Website weer openen** het onderhoud beëindigen. De beveiligde achtergrondmonitor blijft meten. De instelling wordt in PostgreSQL bewaard, ook na een herstart of deploy. Zonder database geldt de bestaande tijdelijke lokale opslag.
+
+De blauw-witte onderhoudspagina gebruikt het AMRP-logo, de bestaande thema-instelling en een handmatige controle met duidelijke laad- en foutmeldingen. Zij controleert direct bij het openen, elke 15 seconden zolang het tabblad zichtbaar is en bij terugkeer naar het tabblad. Alleen een bevestigde open website leidt automatisch terug naar het statusoverzicht. De weergegeven tijd is de laatste succesvolle controle; er wordt geen geschatte eindtijd verzonnen. In het beheerpanel opent **Onderhoudspagina bekijken** een beveiligd voorbeeld zonder de website te sluiten. In het voorbeeld gebeurt geen automatische controle of doorverwijzing; de controleknop toont daar alleen de echte huidige onderhoudsstand.
 
 ### Discord-profielfoto in de footer
 
