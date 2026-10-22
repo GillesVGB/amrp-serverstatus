@@ -14,7 +14,7 @@ Open een dienst met storing of onderhoud via de knop eronder om de uitleg te lez
 
 ### Discord-profielfoto in de footer
 
-Naast ‘by Gilles’ staat de Discord-profielfoto van account `960090714950225970`. De server haalt de avatar via Lanyard op en verwijst naar een kleine Discord CDN-afbeelding; er is geen bottoken nodig. Het account moet lid blijven van de Lanyard-server. De verwijzing wordt kort gecachet, waardoor een gewijzigde foto niet direct verschijnt. Bij een ontbrekende foto of een onbereikbare provider blijft alleen de klikbare naam zichtbaar. Discord-status en activiteiten worden niet op de website getoond.
+Naast ‘by Gilles’ staat de Discord-profielfoto van account `960090714950225970`. De server haalt de avatar via Lanyard op en verwijst naar een kleine Discord CDN-afbeelding; er is geen bottoken nodig. Het account moet lid blijven van de Lanyard-server. De browser controleert de foto bij het openen, elke minuut zolang de pagina zichtbaar is en wanneer je terugkeert naar het tabblad. De fotoverwijzing wordt niet gecachet; de afbeelding verandert zodra Lanyard de nieuwe avatar doorgeeft. Bewegende avatars worden als geanimeerde WebP getoond, behalve bij de systeemvoorkeur voor minder beweging. Bij een tijdelijke fout blijft de laatst opgehaalde foto staan en volgt automatisch een nieuwe poging. Zonder profielfoto blijft alleen de klikbare naam zichtbaar. Discord-status en activiteiten worden niet op de website getoond.
 
 ## Vercel en Neon instellen
 
