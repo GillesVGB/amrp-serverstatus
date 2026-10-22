@@ -1,5 +1,5 @@
 import { getHistory, getMonitorHeartbeat, getSiteSettings, hasAdminSession, listAnnouncements, listIncidents, listServices, pruneHistory, recordHistory, recordIncidentState, type HistoryRange, type ServiceRow, type ServiceStatus } from "@/app/lib/server";
-import { getAnnouncedOutages } from "@/app/lib/announcement-status";
+import { getAnnouncedOutages, announcedOutageReason } from "@/app/lib/announcement-status";
 import { websiteMaintenanceReason } from '@/app/lib/website-maintenance';
 
 export const dynamic = "force-dynamic";
@@ -128,9 +128,10 @@ export async function GET(request: Request) {
     }));
     const [incidents, announcements] = await Promise.all([listIncidents(), listAnnouncements()]);
     const announcedOutages = getAnnouncedOutages(announcements);
-    const publicResults = results.map((service) => announcedOutages.has(service.id)
-      ? { ...service, status: "down" as const, message: announcedOutages.get(service.id)! }
-      : service);
+    const publicResults = results.map((service) => {
+      const reason = announcedOutageReason(service.id, service.status, announcedOutages);
+      return reason ? { ...service, status: 'down' as const, message: reason } : service;
+    });
     await pruneHistory(checkedAt - 7 * 24 * 60 * 60 * 1000);
     const monitorStatus = monitorCheckedAt === null ? "unknown" : Date.now() - monitorCheckedAt > 20_000 ? "stale" : "active";
     return Response.json({ services: publicResults, incidents, announcements, checkedAt, monitorCheckedAt, monitorStatus, range, checkIntervalSeconds: 5 }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate", Pragma: "no-cache", Expires: "0" } });

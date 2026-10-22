@@ -1,6 +1,11 @@
-import type { AnnouncementRow } from "./server";
+import type { AnnouncementRow, ServiceStatus } from "./server";
 
 type OutageAnnouncement = Pick<AnnouncementRow, "published" | "kind" | "affectedServices" | "title" | "description">;
+
+export function announcedOutageReason(id: string, status: ServiceStatus, outages: Map<string, string>): string | undefined {
+  // Explicit maintenance keeps its own reason; the general announcement remains visible.
+  return status === 'maintenance' ? undefined : outages.get(id);
+}
 
 export function getAnnouncedOutages(announcements: OutageAnnouncement[]): Map<string, string> {
   const messages = new Map<string, string[]>();

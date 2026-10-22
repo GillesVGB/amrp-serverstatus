@@ -1,6 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {websiteMaintenanceReason} from '../app/lib/website-maintenance.ts';
+import {getAnnouncedOutages, announcedOutageReason} from '../app/lib/announcement-status.ts';
+
+test('Een algemene storing overschrijft geen expliciet onderhoud of de eigen reden', () => {
+  const outages = getAnnouncedOutages([{published:true,kind:'outage',affectedServices:[{id:'overheid',name:'Overheid'}],title:'Optimalisaties',description:'Algemene melding'}]);
+  assert.equal(announcedOutageReason('overheid','maintenance',outages),undefined);
+  assert.match(announcedOutageReason('overheid','operational',outages),/^Algemene storing: Optimalisaties/);
+  assert.equal(announcedOutageReason('other','operational',outages),undefined);
+});
 
 test('De onderhoudsreden uit de headers wordt ook bij HTTP 503 herkend', async () => {
   const reason = 'Update personeel & roepnummers — even geduld.';
