@@ -72,3 +72,10 @@ Open `http://127.0.0.1:5180`. De statuspagina staat op `/` en het beheerpaneel o
 npm run build
 node ./node_modules/eslint/bin/eslint.js app/page.tsx app/layout.tsx app/lib/server.ts app/admin/page.tsx app/api/status/route.ts app/api/admin/session/route.ts app/api/services/route.ts 'app/api/services/[id]/route.ts' components/theme-toggle.tsx
 ```
+# Onderhoud van het overheidsportaal
+
+De websitecontrole van `overheid.amsterdamrp.nl` leest automatisch de publieke
+onderhoudsmelding van het portaal. Een ingeschakelde onderhoudsstand verschijnt
+oranje met de ingevoerde reden en wordt opgenomen in de bestaande historie en
+incidenten. Hiervoor zijn geen Discord-tokens of beheersleutels nodig. Na heropening
+gebruikt de volgende controle weer de normale bereikbaarheid van het portaal.

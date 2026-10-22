@@ -314,7 +314,7 @@ export async function recordIncidentState(service: Pick<ServiceRow, "id" | "name
     }
     const existing = await sql`SELECT id, service_id AS "serviceId", status, reason, started_at AS "startedAt", resolved_at AS "resolvedAt" FROM amrp_status_incidents WHERE service_id = ${service.id} AND resolved_at IS NULL LIMIT 1`;
     const old = existing[0];
-    if (!old || old.status === status) return null;
+    if (!old || (old.status === status && old.reason === reason)) return null;
     const updated = await sql.query(
       `UPDATE amrp_status_incidents SET status = $2, reason = $3 WHERE id = $1 AND resolved_at IS NULL AND status = $4
        RETURNING id, service_id AS "serviceId", status, reason, started_at AS "startedAt", resolved_at AS "resolvedAt"`,

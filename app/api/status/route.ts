@@ -1,5 +1,6 @@
 import { getHistory, getMonitorHeartbeat, getSiteSettings, hasAdminSession, listAnnouncements, listIncidents, listServices, pruneHistory, recordHistory, recordIncidentState, type HistoryRange, type ServiceRow, type ServiceStatus } from "@/app/lib/server";
 import { getAnnouncedOutages } from "@/app/lib/announcement-status";
+import { websiteMaintenanceReason } from '@/app/lib/website-maintenance';
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -21,6 +22,10 @@ async function probe(service: ServiceRow): Promise<Probe> {
       const maxPlayers = Number(data.sv_maxclients);
       if (!Number.isFinite(players) || !Number.isFinite(maxPlayers)) return { status: "degraded", message: "FiveM reageert, maar de spelersgegevens zijn ongeldig", responseMs, players: null, maxPlayers: null };
       return { status: "operational", message: data.hostname || "FiveM-server reageert", responseMs, players, maxPlayers };
+    }
+    if (service.kind === 'website') {
+      const reason = await websiteMaintenanceReason(service.endpoint, response, fetch, controller.signal);
+      if (reason !== null) return {status:'maintenance',message:reason,responseMs:Date.now() - startedAt,players:null,maxPlayers:null};
     }
     if (response.status >= 500) return { status: "down", message: `Server gaf HTTP ${response.status} terug`, responseMs, players: null, maxPlayers: null };
     if (response.status >= 400) return { status: "degraded", message: `Adres reageert met HTTP ${response.status}`, responseMs, players: null, maxPlayers: null };
@@ -113,8 +118,8 @@ export async function GET(request: Request) {
         kind: service.kind,
         enabled: Boolean(service.enabled),
         paused: Boolean(service.paused),
-        maintenance: Boolean(service.maintenance),
-        maintenanceMessage: service.maintenanceMessage,
+        maintenance: Boolean(service.maintenance || current.status === 'maintenance'),
+        maintenanceMessage: current.status === 'maintenance' ? current.message : service.maintenanceMessage,
         ...current,
         checkedAt,
         history,
