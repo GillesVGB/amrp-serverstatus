@@ -8,17 +8,19 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 type CheckState = "idle" | "checking" | "maintenance" | "error" | "reopening";
 
-export function SiteMaintenance({ preview = false }: { preview?: boolean }) {
+export function SiteMaintenance({ preview = false, unavailable = false }: { preview?: boolean; unavailable?: boolean }) {
   const [checkState, setCheckState] = useState<CheckState>("idle");
   const [lastChecked, setLastChecked] = useState<number | null>(null);
   const [feedback, setFeedback] = useState(preview
     ? "Dit is een voorbeeld. De onderhoudsstand van de website wordt niet gewijzigd."
+    : unavailable ? "De statusgegevens zijn tijdelijk niet beschikbaar. We proberen het automatisch opnieuw."
     : "We controleren automatisch wanneer de website weer open is.");
   const activeRequest = useRef<AbortController | null>(null);
   const mounted = useRef(false);
+  const retryNotBefore = useRef(0);
 
   const checkAvailability = useCallback(async (manual = false) => {
-    if (!mounted.current || activeRequest.current) return;
+    if (!mounted.current || activeRequest.current || (!manual && Date.now() < retryNotBefore.current)) return;
     const controller = new AbortController();
     activeRequest.current = controller;
     setCheckState("checking");
@@ -26,14 +28,23 @@ export function SiteMaintenance({ preview = false }: { preview?: boolean }) {
     const timeout = window.setTimeout(() => controller.abort(), 10_000);
     try {
       const response = await fetch("/api/site-state", { cache: "no-store", signal: controller.signal });
-      if (!response.ok) throw new Error("Controle niet beschikbaar");
+      if (!response.ok) {
+        const retryAfter = Number(response.headers.get("Retry-After"));
+        retryNotBefore.current = Date.now() + (Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter, 900) : 30) * 1000;
+        throw new Error("Controle niet beschikbaar");
+      }
       const state: unknown = await response.json();
       if (!mounted.current || activeRequest.current !== controller) return;
       if (controller.signal.aborted || !state || typeof state !== "object" || !("maintenance" in state) || typeof state.maintenance !== "boolean") {
         throw new Error("Geen geldige onderhoudsstatus ontvangen");
       }
       setLastChecked(Date.now());
-      if (state.maintenance) {
+      retryNotBefore.current = 0;
+      if (unavailable) {
+        setCheckState("reopening");
+        setFeedback("De verbinding is hersteld. De pagina wordt opnieuw geopend…");
+        window.location.reload();
+      } else if (state.maintenance) {
         setCheckState("maintenance");
         setFeedback(preview
           ? "De onderhoudsstand is momenteel actief. Je bekijkt nog steeds het voorbeeld."
@@ -49,14 +60,16 @@ export function SiteMaintenance({ preview = false }: { preview?: boolean }) {
     } catch {
       if (!mounted.current || activeRequest.current !== controller) return;
       setCheckState("error");
-      setFeedback(preview
+      setFeedback(unavailable
+        ? "De statusgegevens zijn nog niet beschikbaar. We proberen het later automatisch opnieuw."
+        : preview
         ? "De controle is niet gelukt. Probeer het opnieuw om de huidige onderhoudsstand te controleren."
         : "De controle is niet gelukt. We proberen het automatisch opnieuw. Je kunt ook zelf opnieuw controleren.");
     } finally {
       window.clearTimeout(timeout);
       if (activeRequest.current === controller) activeRequest.current = null;
     }
-  }, [preview]);
+  }, [preview, unavailable]);
 
   useEffect(() => {
     mounted.current = true;
@@ -64,7 +77,7 @@ export function SiteMaintenance({ preview = false }: { preview?: boolean }) {
       if (document.visibilityState === "visible") void checkAvailability();
     };
     const first = preview ? null : window.setTimeout(refresh, 0);
-    const interval = preview ? null : window.setInterval(refresh, 15_000);
+    const interval = preview ? null : window.setInterval(refresh, unavailable ? 30_000 : 15_000);
     if (!preview) {
       document.addEventListener("visibilitychange", refresh);
       window.addEventListener("focus", refresh);
@@ -78,7 +91,7 @@ export function SiteMaintenance({ preview = false }: { preview?: boolean }) {
       document.removeEventListener("visibilitychange", refresh);
       window.removeEventListener("focus", refresh);
     };
-  }, [checkAvailability, preview]);
+  }, [checkAvailability, preview, unavailable]);
 
   const checking = checkState === "checking";
   const FeedbackIcon = checking ? LoaderCircle : checkState === "error" ? TriangleAlert : checkState === "reopening" ? CircleCheck : RefreshCw;
@@ -96,9 +109,9 @@ export function SiteMaintenance({ preview = false }: { preview?: boolean }) {
         {preview && <aside className="maintenance-preview-note"><span><strong>Voorbeeldweergave</strong> Je bekijkt de onderhoudspagina zonder de website te sluiten.</span><Link href="/admin"><ArrowLeft size={14} aria-hidden="true" /> Terug naar beheer</Link></aside>}
         <section className="maintenance-content" aria-labelledby="site-maintenance-title">
           <div className="maintenance-copy">
-            <p className="maintenance-kicker"><span aria-hidden="true" /> Onderhoud aan de statuswebsite</p>
-            <h1 id="site-maintenance-title">Even niet bereikbaar.<span>We zijn ermee bezig.</span></h1>
-            <p className="maintenance-description">We voeren onderhoud uit aan de statuswebsite van Amsterdam Roleplay. Zodra de website weer open is, kom je automatisch terug bij het statusoverzicht.</p>
+            <p className="maintenance-kicker"><span aria-hidden="true" /> {unavailable ? "Statuscontrole tijdelijk onderbroken" : "Onderhoud aan de statuswebsite"}</p>
+            <h1 id="site-maintenance-title">{unavailable ? "Status tijdelijk" : "Even niet bereikbaar."}<span>{unavailable ? "niet beschikbaar." : "We zijn ermee bezig."}</span></h1>
+            <p className="maintenance-description">{unavailable ? "De statusgegevens kunnen momenteel niet worden opgehaald. We proberen het automatisch opnieuw. Zodra de verbinding hersteld is, wordt het statusoverzicht weer geopend." : "We voeren onderhoud uit aan de statuswebsite van Amsterdam Roleplay. Zodra de website weer open is, kom je automatisch terug bij het statusoverzicht."}</p>
             <div className="site-maintenance-actions">
               <button type="button" className="primary-button" onClick={() => void checkAvailability(true)} disabled={checking || checkState === "reopening"} aria-busy={checking}>
                 {checking ? <LoaderCircle size={16} className="spin" aria-hidden="true" /> : <RefreshCw size={16} aria-hidden="true" />}
@@ -114,11 +127,11 @@ export function SiteMaintenance({ preview = false }: { preview?: boolean }) {
           <aside className="maintenance-details" aria-labelledby="maintenance-details-title">
             <span className="maintenance-tool"><Wrench size={22} aria-hidden="true" /></span>
             <h2 id="maintenance-details-title">Wat betekent dit?</h2>
-            <p>Dit onderhoud betreft alleen de statuswebsite. De gekoppelde diensten worden hierdoor niet uitgeschakeld.</p>
+            <p>{unavailable ? "Er is op dit moment geen betrouwbare actuele status beschikbaar. Dit bevestigt geen storing bij de gekoppelde diensten." : "Dit onderhoud betreft alleen de statuswebsite. De gekoppelde diensten worden hierdoor niet uitgeschakeld."}</p>
             <dl>
-              <div><dt>Statuswebsite</dt><dd>Tijdelijk gesloten</dd></div>
+              <div><dt>{unavailable ? "Statusgegevens" : "Statuswebsite"}</dt><dd>{unavailable ? "Niet beschikbaar" : "Tijdelijk gesloten"}</dd></div>
               <div><dt>Heropening</dt><dd>Automatisch</dd></div>
-              <div><dt>{preview ? "Weergave" : "Nieuwe controle"}</dt><dd>{preview ? "Beheervoorbeeld" : "Elke 15 seconden"}</dd></div>
+              <div><dt>{preview ? "Weergave" : "Nieuwe controle"}</dt><dd>{preview ? "Beheervoorbeeld" : unavailable ? "Automatisch" : "Elke 15 seconden"}</dd></div>
             </dl>
           </aside>
         </section>

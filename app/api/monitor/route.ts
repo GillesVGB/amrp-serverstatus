@@ -18,6 +18,6 @@ export async function POST(request: Request) {
   if (heartbeatAt !== null) await recordMonitorHeartbeat(heartbeatAt);
   return Response.json(
     { ok: response.ok, checkedAt: result.checkedAt ?? Date.now(), heartbeatAt, checkedServices: result.services?.length ?? 0, ...(response.ok ? {} : { error: result.error }) },
-    { status: response.status, headers: { "Cache-Control": "no-store" } },
+    { status: response.status, headers: { "Cache-Control": "no-store", ...(response.headers.has("Retry-After") ? { "Retry-After": response.headers.get("Retry-After")! } : {}) } },
   );
 }

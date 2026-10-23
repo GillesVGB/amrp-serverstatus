@@ -1,6 +1,7 @@
 import { getHistory, getMonitorHeartbeat, getSiteSettings, hasAdminSession, listAnnouncements, listIncidents, listServices, pruneHistory, recordHistory, recordIncidentState, type HistoryRange, type ServiceRow, type ServiceStatus } from "@/app/lib/server";
 import { getAnnouncedOutages, announcedOutageReason } from "@/app/lib/announcement-status";
 import { websiteMaintenanceReason } from '@/app/lib/website-maintenance';
+import { markDatabaseUnavailable } from "@/app/lib/database-availability";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -136,6 +137,7 @@ export async function GET(request: Request) {
     const monitorStatus = monitorCheckedAt === null ? "unknown" : Date.now() - monitorCheckedAt > 20_000 ? "stale" : "active";
     return Response.json({ services: publicResults, incidents, announcements, checkedAt, monitorCheckedAt, monitorStatus, range, checkIntervalSeconds: 5 }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate", Pragma: "no-cache", Expires: "0" } });
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : "Statuscontrole niet beschikbaar." }, { status: 503, headers: { "Cache-Control": "no-store" } });
+    const failure = markDatabaseUnavailable(error);
+    return Response.json({ unavailable: true, error: "De statusgegevens zijn tijdelijk niet beschikbaar. We proberen het later opnieuw." }, { status: 503, headers: { "Cache-Control": "no-store", "Retry-After": String(failure.retryAfterSeconds) } });
   }
 }

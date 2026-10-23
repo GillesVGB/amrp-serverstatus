@@ -201,6 +201,7 @@ function formatIncidentDuration(startedAt: number) {
 
 export default function StatusDashboard() {
   const [siteMaintenance, setSiteMaintenance] = useState(false);
+  const [statusUnavailable, setStatusUnavailable] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastChecked, setLastChecked] = useState<number | null>(null);
@@ -271,7 +272,15 @@ export default function StatusDashboard() {
     try {
       const response = await fetch(`/api/status?range=${range}&t=${Date.now()}`, { cache: "no-store" });
       if (response.status === 503) {
-        const failure = await response.json() as { maintenance?: boolean; error?: string };
+        const failure = await response.json() as { maintenance?: boolean; unavailable?: boolean; error?: string };
+        if (failure.unavailable) {
+          setStatusUnavailable(true);
+          setServices([]);
+          setIncidents([]);
+          setAnnouncements([]);
+          previousStatuses.current = null;
+          return;
+        }
         if (failure.maintenance) {
           setSiteMaintenance(true);
           setServices([]);
@@ -296,6 +305,7 @@ export default function StatusDashboard() {
       previousStatuses.current = Object.fromEntries(payload.services.map((service) => [service.id, service.status]));
       setServices(payload.services);
       setSiteMaintenance(false);
+      setStatusUnavailable(false);
       setIncidents(payload.incidents ?? []);
       setAnnouncements(payload.announcements ?? []);
       setLastChecked(payload.checkedAt);
@@ -313,10 +323,10 @@ export default function StatusDashboard() {
 
   useEffect(() => {
     const preference = setTimeout(() => setNotificationsEnabled(localStorage.getItem("amrp_status_subscribed") === "true"), 0);
-    const first = setTimeout(() => void refresh(), 0);
-    const timer = setInterval(() => void refresh(), 5000);
-    return () => { clearTimeout(preference); clearTimeout(first); clearInterval(timer); };
-  }, [refresh]);
+    const first = statusUnavailable ? null : setTimeout(() => void refresh(), 0);
+    const timer = setInterval(() => { if (!statusUnavailable) void refresh(); }, 5000);
+    return () => { clearTimeout(preference); if (first !== null) clearTimeout(first); clearInterval(timer); };
+  }, [refresh, statusUnavailable]);
 
   const toggleNotifications = async () => {
     if (notificationsEnabled) {
@@ -381,6 +391,7 @@ export default function StatusDashboard() {
   const updatedAtLabel = lastChecked ? new Date(lastChecked).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }) : "—";
   const monitorCheckedLabel = monitorCheckedAt ? new Date(monitorCheckedAt).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "nog geen succesvolle controle";
 
+  if (statusUnavailable) return <SiteMaintenance unavailable />;
   if (siteMaintenance) return <SiteMaintenance />;
 
   return (

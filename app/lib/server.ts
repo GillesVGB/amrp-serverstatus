@@ -1,3 +1,5 @@
+import { assertDatabaseAvailable, clearDatabaseUnavailable, markDatabaseUnavailable } from "./database-availability";
+
 export type ServiceKind = "fivem" | "website" | "http";
 export type ServiceStatus = "operational" | "degraded" | "down" | "unknown" | "maintenance";
 export type ServiceRow = {
@@ -38,6 +40,7 @@ let memorySiteSettings: SiteSettings = { maintenance: false, updatedAt: null };
 let memoryMonitorHeartbeat: number | null = null;
 let schemaSetup: Promise<void> | undefined;
 let sqlSetup: Promise<NeonSql> | undefined;
+let siteSettingsRead: Promise<SiteSettings> | undefined;
 let lastPrunedAt = 0;
 
 function databaseUrl() {
@@ -45,6 +48,7 @@ function databaseUrl() {
 }
 
 async function sqlClient() {
+  assertDatabaseAvailable();
   const url = databaseUrl();
   if (!url) throw new Error("Koppel eerst de Neon-database met de variabele DATABASE_URL in Vercel.");
   sqlSetup ??= import("@neondatabase/serverless").then(({ neon }) => neon<false, false>(url, { fullResults: false, arrayMode: false }));
@@ -122,7 +126,7 @@ async function ensureSchema() {
       await sql`CREATE TABLE IF NOT EXISTS amrp_status_migrations (version TEXT PRIMARY KEY, applied_at BIGINT NOT NULL)`;
     })().catch((error) => {
       schemaSetup = undefined;
-      throw error;
+      throw markDatabaseUnavailable(error);
     });
   }
   await schemaSetup;
@@ -130,13 +134,24 @@ async function ensureSchema() {
 
 export async function getSiteSettings(): Promise<SiteSettings> {
   if (!databaseUrl()) return { ...memorySiteSettings };
-  await ensureSchema();
-  const sql = await sqlClient();
-  const rows = await sql`SELECT maintenance, updated_at AS "updatedAt" FROM amrp_status_site_settings WHERE id = 1`;
-  const row = rows[0];
-  return row
-    ? { maintenance: Number(row.maintenance) === 1, updatedAt: Number(row.updatedAt) }
-    : { maintenance: false, updatedAt: null };
+  siteSettingsRead ??= (async () => {
+    try {
+      await ensureSchema();
+      const sql = await sqlClient();
+      const rows = await sql`SELECT maintenance, updated_at AS "updatedAt" FROM amrp_status_site_settings WHERE id = 1`;
+      const row = rows[0];
+      const settings = row
+        ? { maintenance: Number(row.maintenance) === 1, updatedAt: Number(row.updatedAt) }
+        : { maintenance: false, updatedAt: null };
+      clearDatabaseUnavailable();
+      return settings;
+    } catch (error) {
+      throw markDatabaseUnavailable(error);
+    }
+  })().finally(() => {
+    siteSettingsRead = undefined;
+  });
+  return { ...await siteSettingsRead };
 }
 
 export async function saveSiteSettings(maintenance: boolean): Promise<SiteSettings> {
