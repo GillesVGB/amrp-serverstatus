@@ -1,4 +1,5 @@
 import { assertDatabaseAvailable, clearDatabaseUnavailable, markDatabaseUnavailable } from "./database-availability";
+import { createDatabaseClient, type DatabaseClient } from "./database-client";
 
 export type ServiceKind = "fivem" | "website" | "http";
 export type ServiceStatus = "operational" | "degraded" | "down" | "unknown" | "maintenance";
@@ -30,7 +31,6 @@ export type AnnouncementKind = "outage" | "notice";
 export type AnnouncementRow = { id: string; title: string; description: string; kind: AnnouncementKind; affectedServices: AnnouncementService[]; published: boolean; publishedAt: number | null; createdAt: number; updatedAt: number };
 export type AnnouncementInput = Omit<AnnouncementRow, "id" | "publishedAt" | "createdAt" | "updatedAt">;
 export type SiteSettings = { maintenance: boolean; updatedAt: number | null };
-type NeonSql = import("@neondatabase/serverless").NeonQueryFunction<false, false>;
 let memoryServices: ServiceRow[] = DEFAULT_SERVICES.map((service) => ({ ...service }));
 const memoryHistory = new Map<string, HistoryRow[]>();
 const memoryIncidents = new Map<string, IncidentRow>();
@@ -39,19 +39,22 @@ const memoryAnnouncements: AnnouncementRow[] = [];
 let memorySiteSettings: SiteSettings = { maintenance: false, updatedAt: null };
 let memoryMonitorHeartbeat: number | null = null;
 let schemaSetup: Promise<void> | undefined;
-let sqlSetup: Promise<NeonSql> | undefined;
+let sqlSetup: Promise<DatabaseClient> | undefined;
 let siteSettingsRead: Promise<SiteSettings> | undefined;
 let lastPrunedAt = 0;
 
 function databaseUrl() {
-  return process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  return process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL || process.env.POSTGRES_URL;
 }
 
 async function sqlClient() {
   assertDatabaseAvailable();
   const url = databaseUrl();
-  if (!url) throw new Error("Koppel eerst de Neon-database met de variabele DATABASE_URL in Vercel.");
-  sqlSetup ??= import("@neondatabase/serverless").then(({ neon }) => neon<false, false>(url, { fullResults: false, arrayMode: false }));
+  if (!url) throw new Error("Stel eerst de PostgreSQL-database in bij de hostingvariabelen.");
+  sqlSetup ??= createDatabaseClient(url).catch((error) => {
+    sqlSetup = undefined;
+    throw error;
+  });
   return sqlSetup;
 }
 
@@ -124,6 +127,15 @@ async function ensureSchema() {
         updated_at BIGINT NOT NULL
       )`;
       await sql`CREATE TABLE IF NOT EXISTS amrp_status_migrations (version TEXT PRIMARY KEY, applied_at BIGINT NOT NULL)`;
+      // Only the server-side table owner accesses these tables. No public
+      // Supabase Data API policies expose endpoints, drafts or settings.
+      await sql`ALTER TABLE amrp_status_services ENABLE ROW LEVEL SECURITY`;
+      await sql`ALTER TABLE amrp_status_history ENABLE ROW LEVEL SECURITY`;
+      await sql`ALTER TABLE amrp_status_incidents ENABLE ROW LEVEL SECURITY`;
+      await sql`ALTER TABLE amrp_status_monitor ENABLE ROW LEVEL SECURITY`;
+      await sql`ALTER TABLE amrp_status_announcements ENABLE ROW LEVEL SECURITY`;
+      await sql`ALTER TABLE amrp_status_site_settings ENABLE ROW LEVEL SECURITY`;
+      await sql`ALTER TABLE amrp_status_migrations ENABLE ROW LEVEL SECURITY`;
     })().catch((error) => {
       schemaSetup = undefined;
       throw markDatabaseUnavailable(error);

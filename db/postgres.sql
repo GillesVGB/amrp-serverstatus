@@ -1,4 +1,4 @@
--- Vercel + Neon schema. The app also applies these idempotently on first use.
+-- PostgreSQL schema for Supabase or Neon. Applied idempotently on first use.
 CREATE TABLE IF NOT EXISTS amrp_status_services (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -64,3 +64,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS amrp_status_incidents_open_service_idx ON amrp
 CREATE INDEX IF NOT EXISTS amrp_status_incidents_started_at_idx ON amrp_status_incidents (started_at DESC);
 CREATE INDEX IF NOT EXISTS amrp_status_announcements_published_idx ON amrp_status_announcements (published, published_at DESC);
 CREATE TABLE IF NOT EXISTS amrp_status_migrations (version TEXT PRIMARY KEY, applied_at BIGINT NOT NULL);
+
+-- Server-only tables: no anonymous/authenticated Data API policies.
+ALTER TABLE amrp_status_services ENABLE ROW LEVEL SECURITY;
+ALTER TABLE amrp_status_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE amrp_status_incidents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE amrp_status_monitor ENABLE ROW LEVEL SECURITY;
+ALTER TABLE amrp_status_announcements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE amrp_status_site_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE amrp_status_migrations ENABLE ROW LEVEL SECURITY;

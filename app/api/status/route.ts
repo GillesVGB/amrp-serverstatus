@@ -78,10 +78,10 @@ async function sendDiscordAlert(serviceName: string, status: ServiceStatus, reas
 export async function GET(request: Request) {
   const checkedAt = Date.now();
   try {
-    const settings = await getSiteSettings();
     const monitorSecret = process.env.MONITOR_SECRET;
     const isMonitor = Boolean(monitorSecret) && request.headers.get("authorization") === `Bearer ${monitorSecret}`;
-    if (settings.maintenance && !isMonitor && !await hasAdminSession(request)) {
+    const settings = isMonitor ? null : await getSiteSettings();
+    if (settings?.maintenance && !await hasAdminSession(request)) {
       return Response.json({ maintenance: true, error: "De statuswebsite is tijdelijk in onderhoud." }, {
         status: 503,
         headers: { "Cache-Control": "no-store", "Retry-After": "60" },
@@ -89,7 +89,10 @@ export async function GET(request: Request) {
     }
     const requestedRange = new URL(request.url).searchParams.get("range") as HistoryRange | null;
     const range: HistoryRange = requestedRange && validRanges.includes(requestedRange) ? requestedRange : "1h";
-    const [services, monitorCheckedAt] = await Promise.all([listServices(), getMonitorHeartbeat()]);
+    const [services, monitorCheckedAt] = await Promise.all([
+      listServices(),
+      isMonitor ? Promise.resolve(null) : getMonitorHeartbeat(),
+    ]);
     const results = await Promise.all(services.map(async (service) => {
       const current: Probe = service.paused === 1
         ? { status: "down", message: "Deze dienst is gepauzeerd door een beheerder.", responseMs: null, players: null, maxPlayers: null }
@@ -99,7 +102,7 @@ export async function GET(request: Request) {
       const bucket = Math.floor(checkedAt / 5000);
       await recordHistory(service.id, bucket, checkedAt, current);
       const [history, incidentChange] = await Promise.all([
-        getHistory(service.id, range, checkedAt),
+        isMonitor ? Promise.resolve([]) : getHistory(service.id, range, checkedAt),
         recordIncidentState(service, current.status, current.message, checkedAt),
       ]);
       if (incidentChange?.kind === "started") {
@@ -127,6 +130,13 @@ export async function GET(request: Request) {
         uptime,
       };
     }));
+    if (isMonitor) {
+      await pruneHistory(checkedAt - 7 * 24 * 60 * 60 * 1000);
+      // The worker needs only the checked count; do not read discarded dashboard data.
+      return Response.json({ services: results.map(({ id }) => ({ id })), checkedAt }, {
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
     const [incidents, announcements] = await Promise.all([listIncidents(), listAnnouncements()]);
     const announcedOutages = getAnnouncedOutages(announcements);
     const publicResults = results.map((service) => {

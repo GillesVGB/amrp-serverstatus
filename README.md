@@ -28,6 +28,20 @@ Als de database een verbindingsfout of een verbruikslimiet meldt, verschijnt een
 
 Naast ‘by Gilles’ staat de Discord-profielfoto van account `960090714950225970`. De server haalt de avatar via Lanyard op en verwijst naar een kleine Discord CDN-afbeelding; er is geen bottoken nodig. Het account moet lid blijven van de Lanyard-server. De browser controleert de foto bij het openen, elke minuut zolang de pagina zichtbaar is en wanneer je terugkeert naar het tabblad. De fotoverwijzing wordt niet gecachet; de afbeelding verandert zodra Lanyard de nieuwe avatar doorgeeft. Bewegende avatars worden als geanimeerde WebP getoond, behalve bij de systeemvoorkeur voor minder beweging. Bij een tijdelijke fout blijft de laatst opgehaalde foto staan en volgt automatisch een nieuwe poging. Zonder profielfoto blijft alleen de klikbare naam zichtbaar. Discord-status en activiteiten worden niet op de website getoond.
 
+## Supabase gebruiken en bestaande gegevens meenemen
+
+De website ondersteunt Supabase PostgreSQL en de bestaande Neon-database. Beheerlogin, diensten, meldingen en meetgeschiedenis gebruiken dezelfde gegevensstructuur. Supabase Auth of openbare API-sleutels zijn hiervoor niet nodig.
+
+Zet pas na een gecontroleerde import de geheime servervariabele `SUPABASE_DATABASE_URL` in Vercel. Gebruik hiervoor de **Transaction pooler**-URI uit Supabase **Connect**, met poort `6543`. Deze variabele krijgt voorrang op de bestaande Neon-variabelen; andere websites die met Neon verbonden zijn worden daardoor niet omgezet. Voor een eigen databasecertificaat kan `DATABASE_CA_CERT` worden ingesteld. Certificaatcontrole blijft ingeschakeld. De verbinding gebruikt maximaal drie clients per applicatie-instantie en geen benoemde prepared statements.
+
+Alle zeven applicatietabellen hebben Row Level Security zonder openbare lees- of schrijfregels. De server moet als tabeleigenaar verbinden; alle bestaande beheerderscontroles blijven gelden. Gebruik deze databaseverbinding nooit in de browser.
+
+Het overdrachtsplan en de export-, import- en verificatieopdrachten staan in [docs/SUPABASE-MIGRATIE.md](docs/SUPABASE-MIGRATIE.md). Verwijder alleen de tabellen van deze statuswebsite uit Neon nadat de gegevens en de live werking zijn gecontroleerd. Het Neon-project kan ook andere websites bedienen.
+
+Supabase Free heeft ook een verkeerslimiet. De beveiligde achtergrondmonitor leest daarom geen meetgrafieken, incidentenoverzicht of mededelingen meer die hij toch niet gebruikt. Hij blijft wel diensten controleren, meetgeschiedenis en incidenten opslaan en Discordmeldingen afhandelen. Bezoekers behouden hun volledige overzicht. Het daadwerkelijke verbruik moet na de overstap worden opgevolgd.
+
+Zet `STATUS_DATABASE_MIGRATION_PAUSED=1` tijdens de definitieve overdracht en deploy opnieuw. Dit stopt databasehandelingen van deze applicatie, inclusief controles, beheerwijzigingen en de automatische opschoning van oude metingen. Zo kan een monitor na het herstellen van een providerlimiet de nog over te zetten geschiedenis niet voortijdig verwijderen. De pagina meldt tijdelijk onbeschikbare statusgegevens. Verwijder de pauze pas na de gecontroleerde import en omschakeling en deploy opnieuw. Verouderde deployments of andere toepassingen met schrijftoegang moeten afzonderlijk worden gestopt.
+
 ## Vercel en Neon instellen
 
 Koppel de repository aan Vercel en laat Vercel het project herkennen als Next.js. De standaardbuild is `npm run build`; Vercel bouwt daarmee de Next.js-app en de serverroutes.

@@ -36,6 +36,10 @@ function currentUnavailableError() {
 }
 
 export function assertDatabaseAvailable() {
+  // Preserve the source snapshot until the database transfer is verified.
+  if (process.env.STATUS_DATABASE_MIGRATION_PAUSED === "1") {
+    throw new DatabaseUnavailableError(QUOTA_COOLDOWN_SECONDS, false);
+  }
   if (Date.now() < unavailableUntil) throw currentUnavailableError();
 }
 
