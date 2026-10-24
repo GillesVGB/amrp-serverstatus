@@ -10,7 +10,7 @@ import { SiteMaintenance } from "@/components/site-maintenance";
 
 type Status = "operational" | "degraded" | "down" | "unknown" | "maintenance";
 type MonitorStatus = "active" | "stale" | "unknown";
-type Range = "1h" | "24h";
+type Range = "1h" | "12h" | "24h";
 type UptimeView = "timeline" | "heartbeat" | "summary";
 type ServiceView = "cards" | "table";
 type Density = "comfortable" | "compact" | "visual";
@@ -71,7 +71,7 @@ function ServiceVisual({ service }: { service: Service }) {
   return <span className="service-visual"><Icon size={21} aria-hidden="true" /></span>;
 }
 
-const rangeLabels: Record<Range, string> = { "1h": "1 uur", "24h": "24 uur" };
+const rangeLabels: Record<Range, string> = { "1h": "1 uur", "12h": "12 uur", "24h": "24 uur" };
 const preferenceKey = "amrp-status-dashboard-v1";
 const uptimePreferenceVersionKey = "amrp-status-uptime-preference-v2";
 const defaultPreferences: DashboardPreferences = {
@@ -111,7 +111,7 @@ function readPreferences(): DashboardPreferences {
       visibleColumns: validColumns.includes("name") ? validColumns : ["name", ...validColumns],
       searchQuery: typeof stored.searchQuery === "string" ? stored.searchQuery : "",
       statusFilter: stored.statusFilter === "attention" || stored.statusFilter === "operational" ? stored.statusFilter : "all",
-      range: stored.range === "24h" || String(stored.range) === "7d" ? "24h" : "1h",
+      range: stored.range === "12h" ? "12h" : stored.range === "24h" || String(stored.range) === "7d" ? "24h" : "1h",
       uptimeView: !hasCurrentUptimePreference ? defaultPreferences.uptimeView : stored.uptimeView === "heartbeat" ? "heartbeat" : stored.uptimeView === "summary" ? "summary" : "timeline",
     };
   } catch {
@@ -491,7 +491,7 @@ export default function StatusDashboard() {
           <div className="history-dashboard-copy"><Activity size={18} aria-hidden="true" /><h2 id="history-dashboard-title">Beschikbaarheid</h2></div>
           <div className="history-toolbar">
             <div className="history-control-set"><span className="history-control-label">Periode:</span><div className="history-control-options" role="group" aria-label="Kies de periode">
-              {(["1h", "24h"] as Range[]).map((option) => <button key={option} type="button" className={range === option ? "is-selected" : ""} aria-pressed={range === option} onClick={() => { previousStatuses.current = null; updatePreference("range", option); }}>{rangeLabels[option]}</button>)}
+              {(["1h", "12h", "24h"] as Range[]).map((option) => <button key={option} type="button" className={range === option ? "is-selected" : ""} aria-pressed={range === option} onClick={() => { previousStatuses.current = null; updatePreference("range", option); }}>{rangeLabels[option]}</button>)}
             </div></div>
             {preferences.serviceView === "cards" && <div className="history-control-set"><span className="history-control-label">Uptimeweergave:</span><div className="history-control-options" role="group" aria-label="Kies hoe uptime wordt weergegeven">
               {([{ id: "timeline", label: "Tijdlijn" }, { id: "heartbeat", label: "Hartslag" }, { id: "summary", label: "Uptime" }] as const).map((option) => <button key={option.id} type="button" className={preferences.uptimeView === option.id ? "is-selected" : ""} aria-pressed={preferences.uptimeView === option.id} onClick={() => updatePreference("uptimeView", option.id)}>{option.id === "timeline" ? <ChartNoAxesColumn size={13} aria-hidden="true" /> : option.id === "heartbeat" ? <HeartPulse size={13} aria-hidden="true" /> : <Clock3 size={13} aria-hidden="true" />}{option.label}</button>)}

@@ -39,7 +39,7 @@ async function probe(service: ServiceRow): Promise<Probe> {
   }
 }
 
-const validRanges: HistoryRange[] = ["1h", "24h"];
+const validRanges: HistoryRange[] = ["1h", "12h", "24h"];
 
 async function sendDiscordAlert(serviceName: string, status: ServiceStatus, reason: string, event: "started" | "maintenance" | "recovered") {
   const webhook = process.env.DISCORD_WEBHOOK_URL;
@@ -99,7 +99,7 @@ export async function GET(request: Request) {
         : service.maintenance === 1
           ? { status: "maintenance", message: service.maintenanceMessage || "Deze dienst is gepland in onderhoud.", responseMs: null, players: null, maxPlayers: null }
         : await probe(service);
-      const bucket = Math.floor(checkedAt / 300_000);
+      const bucket = Math.floor(checkedAt / 60_000);
       await recordHistory(service.id, bucket, checkedAt, current);
       const [history, incidentChange] = await Promise.all([
         isMonitor ? Promise.resolve([]) : getHistory(service.id, range, checkedAt),

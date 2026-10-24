@@ -271,18 +271,19 @@ export async function recordHistory(id: string, bucket: number, checkedAt: numbe
     return;
   }
   const samples = memoryHistory.get(id) ?? [];
-  if (samples.some(sample => Math.floor(sample.checkedAt / 300_000) === bucket)) return;
+  if (samples.some(sample => Math.floor(sample.checkedAt / 60_000) === bucket)) return;
   const next = samples.filter(sample => sample.checkedAt >= checkedAt - 86_400_000);
   next.push({ status: result.status, checkedAt, message: result.message });
   next.sort((a, b) => a.checkedAt - b.checkedAt);
-  const trimmed = next.slice(-288);
+  const trimmed = next.slice(-1440);
   memoryHistory.set(id, trimmed);
 }
 
-export type HistoryRange = "1h" | "24h";
+export type HistoryRange = "1h" | "12h" | "24h";
 const HISTORY_RANGES: Record<HistoryRange, { duration: number; bins: number }> = {
-  "1h": { duration: 60 * 60 * 1000, bins: 12 },
-  "24h": { duration: 24 * 60 * 60 * 1000, bins: 288 },
+  "1h": { duration: 60 * 60 * 1000, bins: 60 },
+  "12h": { duration: 12 * 60 * 60 * 1000, bins: 720 },
+  "24h": { duration: 24 * 60 * 60 * 1000, bins: 1440 },
 };
 const statusPriority: Record<ServiceStatus, number> = { operational: 0, unknown: 1, maintenance: 2, degraded: 3, down: 4 };
 
