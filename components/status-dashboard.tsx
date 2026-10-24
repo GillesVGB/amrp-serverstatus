@@ -438,8 +438,8 @@ export default function StatusDashboard() {
       <section className={`overall-banner state-${overall}`} aria-live="polite">
         <span className="overall-icon" aria-hidden="true">{overall === "operational" ? <CircleCheck size={26} /> : overall === "unknown" ? <Activity size={26} /> : overall === "maintenance" ? <Clock3 size={26} /> : <TriangleAlert size={26} />}</span>
         <div className="overall-copy">
-          <strong>{loading ? "Status wordt gecontroleerd…" : overall === "operational" ? "Alle systemen operationeel" : overall === "unknown" ? "Niet alle systemen kunnen worden gecontroleerd" : overall === "maintenance" ? "Een of meer diensten zijn in onderhoud" : overall === "degraded" ? "Enkele systemen reageren niet volledig" : "Er is een storing"}</strong>
-          <span>{loading ? "De eerste meting duurt enkele seconden." : `${onlineCount} van ${activeServices.length} diensten operationeel`}</span>
+          <strong>{loading ? "Status wordt gecontroleerd…" : activeServices.length === 0 ? "Nog geen diensten ingesteld" : overall === "operational" ? "Alle systemen operationeel" : overall === "unknown" ? "Niet alle systemen kunnen worden gecontroleerd" : overall === "maintenance" ? "Een of meer diensten zijn in onderhoud" : overall === "degraded" ? "Enkele systemen reageren niet volledig" : "Er is een storing"}</strong>
+          <span>{loading ? "De eerste meting duurt enkele seconden." : activeServices.length === 0 ? "Het statusoverzicht wordt gevuld zodra diensten zijn toegevoegd." : `${onlineCount} van ${activeServices.length} diensten operationeel`}</span>
         </div>
         {preferences.showMonitor && <div className="overall-meta"><div className={`monitor-pulse is-${monitorStatus}`} role="status"><Activity size={14} aria-hidden="true" /><span><strong>{monitorStatus === "active" ? "Monitor actief" : monitorStatus === "stale" ? "Monitor mogelijk uitgevallen" : "Monitor nog niet gezien"}</strong><small>Laatste hartslag {monitorCheckedLabel}</small></span></div></div>}
       </section>
