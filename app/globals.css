@@ -657,6 +657,14 @@ html,body,:root[data-theme="dark"],:root[data-theme="dark"] body{background:var(
 .uptime-ring-inner>span{display:none}
 .portal-maintenance-reason{display:block;width:100%;resize:vertical;margin:8px 0 14px;padding:10px 12px;border:1px solid var(--border,#cbd5e1);border-radius:7px;background:var(--surface,#fff);color:inherit;font:inherit}
 .portal-maintenance-reason:focus-visible{outline:2px solid #3471c8;outline-offset:2px}
+.site-access-panel .maintenance-reason-field{display:flex;flex-direction:column;align-items:stretch;gap:6px;width:100%;min-width:0;margin:20px 0 14px;color:inherit;font-size:13px;font-weight:600}
+.maintenance-reason-field>small{color:#718096;font-size:12px;font-weight:400;line-height:1.5}
+.site-access-panel .maintenance-reason-field textarea{display:block;box-sizing:border-box;width:100%;min-width:0;min-height:132px;margin:4px 0 0;padding:14px 16px;border:1px solid #cdd8e5;border-radius:8px;background:#f8fafc;color:#263548;font:inherit;font-size:14px;font-weight:400;line-height:1.7;resize:vertical;transition:border-color .15s,box-shadow .15s}
+.site-access-panel .maintenance-reason-field textarea:focus{outline:none;border-color:#5288cb;box-shadow:0 0 0 3px #3471c818;background:#fff}
+.maintenance-reason-count{align-self:flex-end;color:#718096;font-size:11px;font-weight:400}
+.site-access-panel .site-access-controls{margin-top:20px}
+:root[data-theme="dark"] .site-access-panel .maintenance-reason-field textarea{background:#151f2d;border-color:#334d6c;color:#dbe6f4}
+:root[data-theme="dark"] .maintenance-reason-field>small,:root[data-theme="dark"] .maintenance-reason-count{color:#a3b3c9}
 :root[data-theme="dark"] .portal-maintenance-reason{background:#151f2d;border-color:#334d6c}
 .service-table-wrap,:root[data-theme="dark"] .service-table-wrap{border-radius:7px;box-shadow:none}
 :root[data-theme="dark"] .service-filters button{border-color:transparent}

@@ -46,7 +46,7 @@ export function PortalMaintenanceControl({ onChanged }: { onChanged: () => Promi
     {error && <p className="form-error" role="alert">{error}</p>}
     {notice && <p className="form-success" role="status">{notice}</p>}
     <form onSubmit={(event) => { event.preventDefault(); void update(true); }}>
-      <label>Onderhoudsreden<textarea className="portal-maintenance-reason" value={reason} onChange={(event) => setReason(event.target.value)} minLength={5} maxLength={500} rows={3} required disabled={busy || !state} placeholder="Waarom is het overheidsportaal tijdelijk gesloten?" /></label>
+      <label className="maintenance-reason-field"><span>Onderhoudsreden</span><small>Deze tekst wordt getoond op het overheidsportaal.</small><textarea className="portal-maintenance-reason" value={reason} onChange={(event) => setReason(event.target.value)} minLength={5} maxLength={500} rows={3} required disabled={busy || !state} placeholder="Waarom is het overheidsportaal tijdelijk gesloten?" /></label>
       <div className="site-access-actions">
         <button type="submit" className="subtle-button" disabled={busy || !state}>{state?.enabled ? "Onderhoudsreden bijwerken" : "Overheidsportaal in onderhoud plaatsen"}</button>
         {state?.enabled && <button type="button" className="primary-button" disabled={busy} onClick={() => void update(false)}>Overheidsportaal weer openen</button>}
