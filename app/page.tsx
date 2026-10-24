@@ -16,7 +16,7 @@ export default async function Home() {
   }
   if (settings.maintenance) {
     const request = new Request("https://status.amsterdamrp.nl/", { headers: await headers() });
-    if (!await hasAdminSession(request)) return <SiteMaintenance />;
+    if (!await hasAdminSession(request)) return <SiteMaintenance reason={settings.reason} />;
   }
   return <StatusDashboard />;
 }

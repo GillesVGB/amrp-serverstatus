@@ -12,7 +12,7 @@ const emptyDraft: Draft = { name: "", category: "Websites", kind: "website", end
 type AnnouncementService = { id: string; name: string };
 type Announcement = { id: string; title: string; description: string; kind: "outage" | "notice"; affectedServices: AnnouncementService[]; published: boolean; publishedAt: number | null; createdAt: number; updatedAt: number };
 type AnnouncementDraft = { title: string; description: string; kind: Announcement["kind"]; serviceIds: string[]; published: boolean };
-type SiteSettings = { maintenance: boolean; updatedAt: number | null };
+type SiteSettings = { maintenance: boolean; reason: string; updatedAt: number | null };
 const emptyAnnouncementDraft: AnnouncementDraft = { title: "", description: "", kind: "notice", serviceIds: [], published: false };
 
 function formatAnnouncementDate(value: number) {
@@ -34,6 +34,7 @@ export default function AdminPage() {
   const [busy, setBusy] = useState(false);
   const [pauseTarget, setPauseTarget] = useState<Service | null>(null);
   const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
+  const [siteReason, setSiteReason] = useState("");
 
   const loadServices = useCallback(async () => {
     const response = await fetch("/api/services", { cache: "no-store" });
@@ -58,6 +59,7 @@ export default function AdminPage() {
     const payload = await response.json() as { settings?: SiteSettings; error?: string };
     if (!response.ok || !payload.settings) throw new Error(payload.error || "Website-instellingen konden niet worden geladen.");
     setSiteSettings(payload.settings);
+    setSiteReason(payload.settings.reason || "");
   }, []);
 
   const loadAdminData = useCallback(async () => {
@@ -82,22 +84,23 @@ export default function AdminPage() {
     finally { setBusy(false); }
   }
 
-  async function toggleSiteMaintenance() {
+  async function toggleSiteMaintenance(updateReason = false) {
     if (!siteSettings) return;
-    const maintenance = !siteSettings.maintenance;
-    if (maintenance && !window.confirm("De hele statuswebsite in onderhoud zetten? Bezoekers zien dan alleen een onderhoudspagina. Het beheerpanel blijft bereikbaar.")) return;
+    const maintenance = updateReason ? true : !siteSettings.maintenance;
+    if (maintenance && (siteReason.trim().length < 5 || siteReason.trim().length > 500)) { setError("Vul een onderhoudsreden in van 5 tot 500 tekens."); return; }
+    if (maintenance && !updateReason && !window.confirm("De hele statuswebsite in onderhoud zetten? Bezoekers zien dan alleen een onderhoudspagina. Het beheerpanel blijft bereikbaar.")) return;
     setBusy(true); setError(""); setNotice("");
     try {
       const response = await fetch("/api/admin/site-settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ maintenance }),
+        body: JSON.stringify({ maintenance, reason: siteReason.trim() }),
       });
       const payload = await response.json() as { settings?: SiteSettings; error?: string };
       if (response.status === 401) setAuthenticated(false);
       if (!response.ok || !payload.settings) throw new Error(payload.error || "Onderhoudsstand wijzigen mislukt.");
       setSiteSettings(payload.settings);
-      setNotice(payload.settings.maintenance ? "De statuswebsite is gesloten voor bezoekers. Je kunt het beheerpanel blijven gebruiken." : "De statuswebsite is weer openbaar.");
+      setNotice(updateReason ? "Onderhoudsreden bijgewerkt." : payload.settings.maintenance ? "De statuswebsite is gesloten voor bezoekers. Je kunt het beheerpanel blijven gebruiken." : "De statuswebsite is weer openbaar.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Onderhoudsstand wijzigen mislukt."); }
     finally { setBusy(false); }
   }
@@ -263,6 +266,8 @@ export default function AdminPage() {
         <PortalMaintenanceControl onChanged={loadServices} />
         <section className="admin-panel site-access-panel" aria-labelledby="site-access-title">
           <div className="panel-heading"><span className="panel-icon"><Wrench size={18} /></span><div><h2 id="site-access-title">Toegang tot de statuswebsite</h2><p>Sluit de hele website voor bezoekers tijdens onderhoud. Het beheerpanel en de achtergrondmonitor blijven werken.</p></div></div>
+          <label>Reden voor bezoekers<textarea className="portal-maintenance-reason" rows={3} minLength={5} maxLength={500} value={siteReason} onChange={(event) => setSiteReason(event.target.value)} disabled={busy || !siteSettings} placeholder="Waarom is de statuswebsite tijdelijk gesloten?" /></label>
+          {siteSettings?.maintenance && <button className="subtle-button" disabled={busy} type="button" onClick={() => void toggleSiteMaintenance(true)}>Onderhoudsreden opslaan</button>}
           <div className="site-access-controls">
             <div><strong>{siteSettings ? siteSettings.maintenance ? "Website in onderhoud" : "Website openbaar" : "Instellingen laden…"}</strong><p className="admin-muted">{siteSettings?.maintenance ? "Bezoekers zien alleen de onderhoudspagina. Als beheerder kun je de statuspagina nog bekijken." : "Bezoekers kunnen de diensten en meldingen bekijken."}</p></div>
             <div className="site-access-actions"><button type="button" className={siteSettings?.maintenance ? "primary-button" : "subtle-button"} onClick={() => void toggleSiteMaintenance()} disabled={busy || !siteSettings}><Wrench size={16} />{siteSettings?.maintenance ? "Website weer openen" : "Deze site in onderhoud plaatsen"}</button><Link href="/admin/maintenance-preview" className="back-link">Onderhoudspagina bekijken</Link></div>

@@ -9,20 +9,22 @@ type PortalResponse = { maintenance?: Maintenance; error?: string; warning?: str
 export function PortalMaintenanceControl({ onChanged }: { onChanged: () => Promise<void> }) {
   const [state, setState] = useState<Maintenance | null>(null);
   const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const load = useCallback(async () => {
-    setBusy(true); setError("");
     try {
       const response = await fetch("/api/admin/portal-maintenance", { cache: "no-store" });
       const data = await response.json() as PortalResponse;
       if (!response.ok || !data.maintenance) throw new Error(data.error || "Ophalen mislukt.");
-      setState(data.maintenance); setReason(data.maintenance.reason || "");
+      setError(""); setState(data.maintenance); setReason(data.maintenance.reason || "");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Ophalen mislukt."); setState(null); }
     finally { setBusy(false); }
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   async function update(enabled: boolean) {
     if (enabled && !window.confirm("Het overheidsportaal echt sluiten voor gewone gebruikers? Zij zien de onderhoudspagina. Overheidsbeheerders houden toegang.")) return;
@@ -48,7 +50,7 @@ export function PortalMaintenanceControl({ onChanged }: { onChanged: () => Promi
       <div className="site-access-actions">
         <button type="submit" className="subtle-button" disabled={busy || !state}>{state?.enabled ? "Onderhoudsreden bijwerken" : "Overheidsportaal in onderhoud plaatsen"}</button>
         {state?.enabled && <button type="button" className="primary-button" disabled={busy} onClick={() => void update(false)}>Overheidsportaal weer openen</button>}
-        <button type="button" className="subtle-button" disabled={busy} onClick={() => void load()}>Status verversen</button>
+        <button type="button" className="subtle-button" disabled={busy} onClick={() => { setBusy(true); void load(); }}>Status verversen</button>
       </div>
     </form>
   </section>;

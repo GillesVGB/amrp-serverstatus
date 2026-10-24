@@ -30,13 +30,13 @@ export type AnnouncementService = { id: string; name: string };
 export type AnnouncementKind = "outage" | "notice";
 export type AnnouncementRow = { id: string; title: string; description: string; kind: AnnouncementKind; affectedServices: AnnouncementService[]; published: boolean; publishedAt: number | null; createdAt: number; updatedAt: number };
 export type AnnouncementInput = Omit<AnnouncementRow, "id" | "publishedAt" | "createdAt" | "updatedAt">;
-export type SiteSettings = { maintenance: boolean; updatedAt: number | null };
+export type SiteSettings = { maintenance: boolean; reason: string; updatedAt: number | null };
 let memoryServices: ServiceRow[] = DEFAULT_SERVICES.map((service) => ({ ...service }));
 const memoryHistory = new Map<string, HistoryRow[]>();
 const memoryIncidents = new Map<string, IncidentRow>();
 const memoryIncidentHistory: IncidentRow[] = [];
 const memoryAnnouncements: AnnouncementRow[] = [];
-let memorySiteSettings: SiteSettings = { maintenance: false, updatedAt: null };
+let memorySiteSettings: SiteSettings = { maintenance: false, reason: "", updatedAt: null };
 let memoryMonitorHeartbeat: number | null = null;
 let schemaSetup: Promise<void> | undefined;
 let sqlSetup: Promise<DatabaseClient> | undefined;
@@ -127,6 +127,7 @@ async function ensureSchema() {
         updated_at BIGINT NOT NULL
       )`;
       await sql`CREATE TABLE IF NOT EXISTS amrp_status_migrations (version TEXT PRIMARY KEY, applied_at BIGINT NOT NULL)`;
+      await sql`ALTER TABLE amrp_status_site_settings ADD COLUMN IF NOT EXISTS reason TEXT NOT NULL DEFAULT ''`;
       // Only the server-side table owner accesses these tables. No public
       // Supabase Data API policies expose endpoints, drafts or settings.
       await sql`ALTER TABLE amrp_status_services ENABLE ROW LEVEL SECURITY`;
@@ -150,11 +151,11 @@ export async function getSiteSettings(): Promise<SiteSettings> {
     try {
       await ensureSchema();
       const sql = await sqlClient();
-      const rows = await sql`SELECT maintenance, updated_at AS "updatedAt" FROM amrp_status_site_settings WHERE id = 1`;
+      const rows = await sql`SELECT maintenance, reason, updated_at AS "updatedAt" FROM amrp_status_site_settings WHERE id = 1`;
       const row = rows[0];
       const settings = row
-        ? { maintenance: Number(row.maintenance) === 1, updatedAt: Number(row.updatedAt) }
-        : { maintenance: false, updatedAt: null };
+        ? { maintenance: Number(row.maintenance) === 1, reason: String(row.reason || ""), updatedAt: Number(row.updatedAt) }
+        : { maintenance: false, reason: "", updatedAt: null };
       clearDatabaseUnavailable();
       return settings;
     } catch (error) {
@@ -166,22 +167,24 @@ export async function getSiteSettings(): Promise<SiteSettings> {
   return { ...await siteSettingsRead };
 }
 
-export async function saveSiteSettings(maintenance: boolean): Promise<SiteSettings> {
+export async function saveSiteSettings(maintenance: boolean, reason = ""): Promise<SiteSettings> {
   if (typeof maintenance !== "boolean") throw new Error("Ongeldige onderhoudsinstelling.");
+  reason = reason.trim();
+  if (reason.length > 500 || (maintenance && reason.length < 5)) throw new Error("Vul een onderhoudsreden in van 5 tot 500 tekens.");
   const updatedAt = Date.now();
   if (!databaseUrl()) {
-    memorySiteSettings = { maintenance, updatedAt };
+    memorySiteSettings = { maintenance, reason, updatedAt };
     return { ...memorySiteSettings };
   }
   await ensureSchema();
   const sql = await sqlClient();
-  const rows = await sql`INSERT INTO amrp_status_site_settings (id, maintenance, updated_at)
-    VALUES (1, ${maintenance ? 1 : 0}, ${updatedAt})
-    ON CONFLICT (id) DO UPDATE SET maintenance = EXCLUDED.maintenance, updated_at = EXCLUDED.updated_at
-    RETURNING maintenance, updated_at AS "updatedAt"`;
+  const rows = await sql`INSERT INTO amrp_status_site_settings (id, maintenance, reason, updated_at)
+    VALUES (1, ${maintenance ? 1 : 0}, ${reason}, ${updatedAt})
+    ON CONFLICT (id) DO UPDATE SET maintenance = EXCLUDED.maintenance, reason = EXCLUDED.reason, updated_at = EXCLUDED.updated_at
+    RETURNING maintenance, reason, updated_at AS "updatedAt"`;
   const row = rows[0];
   if (!row) throw new Error("De website-instellingen konden niet worden opgeslagen.");
-  return { maintenance: Number(row.maintenance) === 1, updatedAt: Number(row.updatedAt) };
+  return { maintenance: Number(row.maintenance) === 1, reason: String(row.reason || ""), updatedAt: Number(row.updatedAt) };
 }
 
 export async function ensureSeeded() {
@@ -262,24 +265,24 @@ export async function recordHistory(id: string, bucket: number, checkedAt: numbe
     await ensureSchema();
     const sql = await sqlClient();
     await sql.query(
-      "INSERT INTO amrp_status_history (service_id, bucket, status, checked_at, response_ms, message, players, max_players) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (service_id, bucket) DO UPDATE SET status = EXCLUDED.status, checked_at = EXCLUDED.checked_at, response_ms = EXCLUDED.response_ms, message = EXCLUDED.message, players = EXCLUDED.players, max_players = EXCLUDED.max_players",
+      "INSERT INTO amrp_status_history (service_id, bucket, status, checked_at, response_ms, message, players, max_players) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (service_id, bucket) DO NOTHING",
       [id, bucket, result.status, checkedAt, result.responseMs, result.message, result.players, result.maxPlayers],
     );
     return;
   }
   const samples = memoryHistory.get(id) ?? [];
-  const next = samples.filter((sample) => Math.floor(sample.checkedAt / 5000) !== bucket);
+  if (samples.some(sample => Math.floor(sample.checkedAt / 300_000) === bucket)) return;
+  const next = samples.filter(sample => sample.checkedAt >= checkedAt - 86_400_000);
   next.push({ status: result.status, checkedAt, message: result.message });
   next.sort((a, b) => a.checkedAt - b.checkedAt);
-  const trimmed = next.slice(-120960);
+  const trimmed = next.slice(-288);
   memoryHistory.set(id, trimmed);
 }
 
-export type HistoryRange = "1h" | "24h" | "7d";
+export type HistoryRange = "1h" | "24h";
 const HISTORY_RANGES: Record<HistoryRange, { duration: number; bins: number }> = {
-  "1h": { duration: 60 * 60 * 1000, bins: 60 },
-  "24h": { duration: 24 * 60 * 60 * 1000, bins: 144 },
-  "7d": { duration: 7 * 24 * 60 * 60 * 1000, bins: 168 },
+  "1h": { duration: 60 * 60 * 1000, bins: 12 },
+  "24h": { duration: 24 * 60 * 60 * 1000, bins: 288 },
 };
 const statusPriority: Record<ServiceStatus, number> = { operational: 0, unknown: 1, maintenance: 2, degraded: 3, down: 4 };
 
@@ -486,7 +489,7 @@ export async function deleteAnnouncement(id: string) {
 }
 
 export async function pruneHistory(before: number) {
-  if (Date.now() - lastPrunedAt < 60 * 60 * 1000) return;
+  if (Date.now() - lastPrunedAt < 300_000) return;
   lastPrunedAt = Date.now();
   if (databaseUrl()) {
     await ensureSchema();

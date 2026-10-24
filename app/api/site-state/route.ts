@@ -7,8 +7,8 @@ const headers = { "Cache-Control": "no-store" };
 
 export async function GET() {
   try {
-    const { maintenance } = await getSiteSettings();
-    return Response.json({ maintenance }, { headers });
+    const { maintenance, reason } = await getSiteSettings();
+    return Response.json({ maintenance, reason: maintenance ? reason : "" }, { headers });
   } catch (error) {
     const failure = markDatabaseUnavailable(error);
     return Response.json({ unavailable: true, error: "De statusgegevens zijn tijdelijk niet beschikbaar." }, { status: 503, headers: { ...headers, "Retry-After": String(failure.retryAfterSeconds) } });

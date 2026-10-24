@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS amrp_status_site_settings (
 );
 
 CREATE INDEX IF NOT EXISTS amrp_status_services_enabled_category_idx ON amrp_status_services (enabled, category, name);
+ALTER TABLE amrp_status_site_settings ADD COLUMN IF NOT EXISTS reason TEXT NOT NULL DEFAULT '';
 CREATE INDEX IF NOT EXISTS amrp_status_history_checked_at_idx ON amrp_status_history (checked_at);
 CREATE UNIQUE INDEX IF NOT EXISTS amrp_status_incidents_open_service_idx ON amrp_status_incidents (service_id) WHERE resolved_at IS NULL;
 CREATE INDEX IF NOT EXISTS amrp_status_incidents_started_at_idx ON amrp_status_incidents (started_at DESC);

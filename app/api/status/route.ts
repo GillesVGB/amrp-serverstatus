@@ -39,7 +39,7 @@ async function probe(service: ServiceRow): Promise<Probe> {
   }
 }
 
-const validRanges: HistoryRange[] = ["1h", "24h", "7d"];
+const validRanges: HistoryRange[] = ["1h", "24h"];
 
 async function sendDiscordAlert(serviceName: string, status: ServiceStatus, reason: string, event: "started" | "maintenance" | "recovered") {
   const webhook = process.env.DISCORD_WEBHOOK_URL;
@@ -82,7 +82,7 @@ export async function GET(request: Request) {
     const isMonitor = Boolean(monitorSecret) && request.headers.get("authorization") === `Bearer ${monitorSecret}`;
     const settings = isMonitor ? null : await getSiteSettings();
     if (settings?.maintenance && !await hasAdminSession(request)) {
-      return Response.json({ maintenance: true, error: "De statuswebsite is tijdelijk in onderhoud." }, {
+      return Response.json({ maintenance: true, reason: settings.reason, error: "De statuswebsite is tijdelijk in onderhoud." }, {
         status: 503,
         headers: { "Cache-Control": "no-store", "Retry-After": "60" },
       });
@@ -99,7 +99,7 @@ export async function GET(request: Request) {
         : service.maintenance === 1
           ? { status: "maintenance", message: service.maintenanceMessage || "Deze dienst is gepland in onderhoud.", responseMs: null, players: null, maxPlayers: null }
         : await probe(service);
-      const bucket = Math.floor(checkedAt / 5000);
+      const bucket = Math.floor(checkedAt / 300_000);
       await recordHistory(service.id, bucket, checkedAt, current);
       const [history, incidentChange] = await Promise.all([
         isMonitor ? Promise.resolve([]) : getHistory(service.id, range, checkedAt),
@@ -131,7 +131,7 @@ export async function GET(request: Request) {
       };
     }));
     if (isMonitor) {
-      await pruneHistory(checkedAt - 7 * 24 * 60 * 60 * 1000);
+      await pruneHistory(checkedAt - 24 * 60 * 60 * 1000);
       // The worker needs only the checked count; do not read discarded dashboard data.
       return Response.json({ services: results.map(({ id }) => ({ id })), checkedAt }, {
         headers: { "Cache-Control": "no-store" },
@@ -143,7 +143,7 @@ export async function GET(request: Request) {
       const reason = announcedOutageReason(service.id, service.status, announcedOutages);
       return reason ? { ...service, status: 'down' as const, message: reason } : service;
     });
-    await pruneHistory(checkedAt - 7 * 24 * 60 * 60 * 1000);
+    await pruneHistory(checkedAt - 24 * 60 * 60 * 1000);
     const monitorStatus = monitorCheckedAt === null ? "unknown" : Date.now() - monitorCheckedAt > 20_000 ? "stale" : "active";
     return Response.json({ services: publicResults, incidents, announcements, checkedAt, monitorCheckedAt, monitorStatus, range, checkIntervalSeconds: 5 }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate", Pragma: "no-cache", Expires: "0" } });
   } catch (error) {

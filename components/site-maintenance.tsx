@@ -8,7 +8,8 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 type CheckState = "idle" | "checking" | "maintenance" | "error" | "reopening";
 
-export function SiteMaintenance({ preview = false, unavailable = false }: { preview?: boolean; unavailable?: boolean }) {
+export function SiteMaintenance({ preview = false, unavailable = false, reason = "" }: { preview?: boolean; unavailable?: boolean; reason?: string }) {
+  const [maintenanceReason, setMaintenanceReason] = useState(reason);
   const [checkState, setCheckState] = useState<CheckState>("idle");
   const [lastChecked, setLastChecked] = useState<number | null>(null);
   const [feedback, setFeedback] = useState(preview
@@ -39,6 +40,7 @@ export function SiteMaintenance({ preview = false, unavailable = false }: { prev
         throw new Error("Geen geldige onderhoudsstatus ontvangen");
       }
       setLastChecked(Date.now());
+      if ("reason" in state && typeof state.reason === "string") setMaintenanceReason(state.reason);
       retryNotBefore.current = 0;
       if (unavailable) {
         setCheckState("reopening");
@@ -112,6 +114,7 @@ export function SiteMaintenance({ preview = false, unavailable = false }: { prev
             <p className="maintenance-kicker"><span aria-hidden="true" /> {unavailable ? "Statuscontrole tijdelijk onderbroken" : "Onderhoud aan de statuswebsite"}</p>
             <h1 id="site-maintenance-title">{unavailable ? "Status tijdelijk" : "Even niet bereikbaar."}<span>{unavailable ? "niet beschikbaar." : "We zijn ermee bezig."}</span></h1>
             <p className="maintenance-description">{unavailable ? "De statusgegevens kunnen momenteel niet worden opgehaald. We proberen het automatisch opnieuw. Zodra de verbinding hersteld is, wordt het statusoverzicht weer geopend." : "We voeren onderhoud uit aan de statuswebsite van Amsterdam Roleplay. Zodra de website weer open is, kom je automatisch terug bij het statusoverzicht."}</p>
+            {!unavailable && maintenanceReason && <p className="maintenance-description" style={{ whiteSpace: "pre-wrap" }}><strong>Reden van het onderhoud</strong><br />{maintenanceReason}</p>}
             <div className="site-maintenance-actions">
               <button type="button" className="primary-button" onClick={() => void checkAvailability(true)} disabled={checking || checkState === "reopening"} aria-busy={checking}>
                 {checking ? <LoaderCircle size={16} className="spin" aria-hidden="true" /> : <RefreshCw size={16} aria-hidden="true" />}

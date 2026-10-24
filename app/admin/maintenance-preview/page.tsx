@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { hasAdminSession } from "@/app/lib/server";
+import { getSiteSettings, hasAdminSession } from "@/app/lib/server";
 import { SiteMaintenance } from "@/components/site-maintenance";
 
 export const dynamic = "force-dynamic";
@@ -17,5 +17,6 @@ export default async function MaintenancePreviewPage() {
   });
   if (!await hasAdminSession(request)) redirect("/admin");
 
-  return <SiteMaintenance preview />;
+  const settings = await getSiteSettings();
+  return <SiteMaintenance preview reason={settings.reason} />;
 }
