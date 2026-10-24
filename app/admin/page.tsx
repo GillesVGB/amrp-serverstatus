@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, CirclePlus, LoaderCircle, LogOut, Megaphone, Pencil, Power, Save, Send, ShieldCheck, Trash2, Wrench, X } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { PortalMaintenanceControl } from "@/components/portal-maintenance-control";
 
 type Service = { id: string; name: string; category: string; kind: "fivem" | "website" | "http"; endpoint: string; enabled: boolean | number; paused: boolean | number; maintenance: boolean | number; maintenanceMessage: string };
 type Draft = { name: string; category: string; kind: Service["kind"]; endpoint: string; enabled: boolean; paused: boolean; maintenance: boolean; maintenanceMessage: string };
@@ -259,6 +260,7 @@ export default function AdminPage() {
         {error && <p className="form-error notice" role="alert">{error}</p>}
         {notice && <p className="form-success notice" role="status"><Check size={16} /> {notice}</p>}
 
+        <PortalMaintenanceControl onChanged={loadServices} />
         <section className="admin-panel site-access-panel" aria-labelledby="site-access-title">
           <div className="panel-heading"><span className="panel-icon"><Wrench size={18} /></span><div><h2 id="site-access-title">Toegang tot de statuswebsite</h2><p>Sluit de hele website voor bezoekers tijdens onderhoud. Het beheerpanel en de achtergrondmonitor blijven werken.</p></div></div>
           <div className="site-access-controls">
