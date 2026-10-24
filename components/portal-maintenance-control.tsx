@@ -40,8 +40,8 @@ export function PortalMaintenanceControl({ onChanged }: { onChanged: () => Promi
     finally { setBusy(false); }
   }
 
-  return <section className="admin-panel site-access-panel" aria-labelledby="portal-access-title">
-    <div className="panel-heading"><span className="panel-icon"><Wrench size={18} /></span><div><h2 id="portal-access-title">Overheidsportaal bedienen</h2><p>Sluit overheid.amsterdamrp.nl voor gewone gebruikers of open de website weer. Overheidsbeheerders behouden toegang. MEOS is nog niet gekoppeld.</p></div></div>
+  return <details className="admin-panel site-access-panel admin-collapsible" aria-labelledby="portal-access-title">
+    <summary className="admin-collapse-heading"><div className="panel-heading"><span className="panel-icon"><Wrench size={18} /></span><div><h2 id="portal-access-title">Overheidsportaal bedienen</h2><p>Sluit overheid.amsterdamrp.nl voor gewone gebruikers of open de website weer. Overheidsbeheerders behouden toegang. MEOS is nog niet gekoppeld.</p></div></div></summary><div className="admin-collapse-content">
     <p role="status"><strong>{busy ? "Verbinding maken…" : state ? state.enabled ? "Overheidsportaal in onderhoud" : "Overheidsportaal geopend" : "Onderhoudsstatus onbekend"}</strong></p>
     {error && <p className="form-error" role="alert">{error}</p>}
     {notice && <p className="form-success" role="status">{notice}</p>}
@@ -53,5 +53,5 @@ export function PortalMaintenanceControl({ onChanged }: { onChanged: () => Promi
         <button type="button" className="subtle-button" disabled={busy} onClick={() => { setBusy(true); void load(); }}>Status verversen</button>
       </div>
     </form>
-  </section>;
+  </div></details>;
 }

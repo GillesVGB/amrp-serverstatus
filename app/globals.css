@@ -662,6 +662,14 @@ html,body,:root[data-theme="dark"],:root[data-theme="dark"] body{background:var(
 .site-access-panel .maintenance-reason-field textarea{display:block;box-sizing:border-box;width:100%;min-width:0;min-height:132px;margin:4px 0 0;padding:14px 16px;border:1px solid #cdd8e5;border-radius:8px;background:#f8fafc;color:#263548;font:inherit;font-size:14px;font-weight:400;line-height:1.7;resize:vertical;transition:border-color .15s,box-shadow .15s}
 .site-access-panel .maintenance-reason-field textarea:focus{outline:none;border-color:#5288cb;box-shadow:0 0 0 3px #3471c818;background:#fff}
 .maintenance-reason-count{align-self:flex-end;color:#718096;font-size:11px;font-weight:400}
+.admin-collapse-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer;list-style:none;border-radius:6px}
+.admin-collapse-heading::-webkit-details-marker{display:none}
+.admin-collapse-heading .panel-heading{margin:0;flex:1;min-width:0}
+.admin-collapse-heading::after{content:"";width:8px;height:8px;flex:0 0 8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);transition:transform .15s;margin-right:5px;color:#718096}
+.admin-collapsible[open]>.admin-collapse-heading::after{transform:rotate(225deg)}
+.admin-collapse-heading:focus-visible{outline:2px solid #5288cb;outline-offset:7px}
+.admin-collapse-content{padding-top:16px}
+@media(prefers-reduced-motion:reduce){.admin-collapse-heading::after{transition:none}}
 .site-access-panel .site-access-controls{margin-top:20px}
 :root[data-theme="dark"] .site-access-panel .maintenance-reason-field textarea{background:#151f2d;border-color:#334d6c;color:#dbe6f4}
 :root[data-theme="dark"] .maintenance-reason-field>small,:root[data-theme="dark"] .maintenance-reason-count{color:#a3b3c9}

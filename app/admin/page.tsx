@@ -264,15 +264,15 @@ export default function AdminPage() {
         {notice && <p className="form-success notice" role="status"><Check size={16} /> {notice}</p>}
 
         <PortalMaintenanceControl onChanged={loadServices} />
-        <section className="admin-panel site-access-panel" aria-labelledby="site-access-title">
-          <div className="panel-heading"><span className="panel-icon"><Wrench size={18} /></span><div><h2 id="site-access-title">Toegang tot de statuswebsite</h2><p>Sluit de hele website voor bezoekers tijdens onderhoud. Het beheerpanel en de achtergrondmonitor blijven werken.</p></div></div>
+        <details className="admin-panel site-access-panel admin-collapsible" aria-labelledby="site-access-title">
+          <summary className="admin-collapse-heading"><div className="panel-heading"><span className="panel-icon"><Wrench size={18} /></span><div><h2 id="site-access-title">Toegang tot de statuswebsite</h2><p>Sluit de hele website voor bezoekers tijdens onderhoud. Het beheerpanel en de achtergrondmonitor blijven werken.</p></div></div></summary><div className="admin-collapse-content">
           <label className="maintenance-reason-field"><span>Reden voor bezoekers</span><small>Deze tekst verschijnt op de onderhoudspagina.</small><textarea className="portal-maintenance-reason" rows={3} minLength={5} maxLength={500} value={siteReason} onChange={(event) => setSiteReason(event.target.value)} disabled={busy || !siteSettings} placeholder="Bijvoorbeeld: we werken de statuswebsite bij. Bedankt voor je geduld." /><span className="maintenance-reason-count">{siteReason.length}/500 tekens</span></label>
           {siteSettings?.maintenance && <button className="subtle-button" disabled={busy} type="button" onClick={() => void toggleSiteMaintenance(true)}>Onderhoudsreden opslaan</button>}
           <div className="site-access-controls">
             <div><strong>{siteSettings ? siteSettings.maintenance ? "Website in onderhoud" : "Website openbaar" : "Instellingen laden…"}</strong><p className="admin-muted">{siteSettings?.maintenance ? "Bezoekers zien alleen de onderhoudspagina. Als beheerder kun je de statuspagina nog bekijken." : "Bezoekers kunnen de diensten en meldingen bekijken."}</p></div>
             <div className="site-access-actions"><button type="button" className={siteSettings?.maintenance ? "primary-button" : "subtle-button"} onClick={() => void toggleSiteMaintenance()} disabled={busy || !siteSettings}><Wrench size={16} />{siteSettings?.maintenance ? "Website weer openen" : "Deze site in onderhoud plaatsen"}</button><Link href="/admin/maintenance-preview" className="back-link">Onderhoudspagina bekijken</Link></div>
           </div>
-        </section>
+        </div></details>
 
         <section className="admin-panel announcements-panel" aria-labelledby="announcements-admin-title">
           <div className="panel-heading"><span className="panel-icon"><Megaphone size={18} /></span><div><h2 id="announcements-admin-title">Algemene storing of mededeling <span className="small-count">{announcements.length}</span></h2><p>Publiceer een los bericht boven de actieve incidenten. Concepten zijn alleen zichtbaar in dit beheerpanel.</p></div></div>
