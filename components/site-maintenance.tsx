@@ -105,16 +105,16 @@ export function SiteMaintenance({ preview = false, unavailable = false, reason =
           <Image src="/amsterdam-logo.png" alt="" width={42} height={42} priority />
           <div><strong>Amsterdam RP</strong><span>Systeemstatus</span></div>
         </div>
-        <ThemeToggle />
+        <div className="maintenance-header-actions"><span className="maintenance-state-label"><span aria-hidden="true" />{unavailable ? "Verbinding onderbroken" : "Onderhoud"}</span><ThemeToggle /></div>
       </header>
       <main className="maintenance-main">
         {preview && <aside className="maintenance-preview-note"><span><strong>Voorbeeldweergave</strong> Je bekijkt de onderhoudspagina zonder de website te sluiten.</span><Link href="/admin"><ArrowLeft size={14} aria-hidden="true" /> Terug naar beheer</Link></aside>}
         <section className="maintenance-content" aria-labelledby="site-maintenance-title">
           <div className="maintenance-copy">
             <p className="maintenance-kicker"><span aria-hidden="true" /> {unavailable ? "Statuscontrole tijdelijk onderbroken" : "Onderhoud aan de statuswebsite"}</p>
-            <h1 id="site-maintenance-title">{unavailable ? "Status tijdelijk" : "Even niet bereikbaar."}<span>{unavailable ? "niet beschikbaar." : "We zijn ermee bezig."}</span></h1>
-            <p className="maintenance-description">{unavailable ? "De statusgegevens kunnen momenteel niet worden opgehaald. We proberen het automatisch opnieuw. Zodra de verbinding hersteld is, wordt het statusoverzicht weer geopend." : "We voeren onderhoud uit aan de statuswebsite van Amsterdam Roleplay. Zodra de website weer open is, kom je automatisch terug bij het statusoverzicht."}</p>
-            {!unavailable && maintenanceReason && <p className="maintenance-description" style={{ whiteSpace: "pre-wrap" }}><strong>Reden van het onderhoud</strong><br />{maintenanceReason}</p>}
+            <h1 id="site-maintenance-title">{unavailable ? "Status tijdelijk" : "Statuswebsite"}<span>{unavailable ? "niet beschikbaar." : "in onderhoud."}</span></h1>
+            <p className="maintenance-description">{unavailable ? "De verbinding met de statusgegevens is onderbroken. We proberen het automatisch opnieuw." : "Het statusoverzicht is tijdelijk gesloten. Je hoeft deze pagina niet te vernieuwen: zodra het weer beschikbaar is, openen we het automatisch."}</p>
+            {!unavailable && <div className="maintenance-public-message"><span>Onderhoudsbericht</span><p>{maintenanceReason || "We voeren onderhoud uit aan de statuswebsite. Bedankt voor je geduld."}</p></div>}
             <div className="site-maintenance-actions">
               <button type="button" className="primary-button" onClick={() => void checkAvailability(true)} disabled={checking || checkState === "reopening"} aria-busy={checking}>
                 {checking ? <LoaderCircle size={16} className="spin" aria-hidden="true" /> : <RefreshCw size={16} aria-hidden="true" />}
@@ -129,11 +129,11 @@ export function SiteMaintenance({ preview = false, unavailable = false, reason =
           </div>
           <aside className="maintenance-details" aria-labelledby="maintenance-details-title">
             <span className="maintenance-tool"><Wrench size={22} aria-hidden="true" /></span>
-            <h2 id="maintenance-details-title">Wat betekent dit?</h2>
+            <h2 id="maintenance-details-title">Goed om te weten</h2>
             <p>{unavailable ? "Er is op dit moment geen betrouwbare actuele status beschikbaar. Dit bevestigt geen storing bij de gekoppelde diensten." : "Dit onderhoud betreft alleen de statuswebsite. De gekoppelde diensten worden hierdoor niet uitgeschakeld."}</p>
             <dl>
               <div><dt>{unavailable ? "Statusgegevens" : "Statuswebsite"}</dt><dd>{unavailable ? "Niet beschikbaar" : "Tijdelijk gesloten"}</dd></div>
-              <div><dt>Heropening</dt><dd>Automatisch</dd></div>
+              <div><dt>Heropening</dt><dd>Zodra beschikbaar</dd></div>
               <div><dt>{preview ? "Weergave" : "Nieuwe controle"}</dt><dd>{preview ? "Beheervoorbeeld" : unavailable ? "Automatisch" : "Elke 15 seconden"}</dd></div>
             </dl>
           </aside>

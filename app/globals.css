@@ -670,6 +670,32 @@ html,body,:root[data-theme="dark"],:root[data-theme="dark"] body{background:var(
 .admin-collapse-heading:focus-visible{outline:2px solid #5288cb;outline-offset:7px}
 .admin-collapse-content{padding-top:16px}
 @media(prefers-reduced-motion:reduce){.admin-collapse-heading::after{transition:none}}
+.site-maintenance-page{background:#f5f7fb}
+.maintenance-header{min-height:88px}
+.maintenance-header-actions{display:flex;align-items:center;gap:18px}
+.maintenance-state-label{display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border:1px solid #d7e4f5;border-radius:6px;background:#edf3fc;color:#315b91;font-size:11px;font-weight:600}
+.maintenance-state-label>span{width:6px;height:6px;border-radius:50%;background:#467fca}
+.maintenance-main{padding:48px 0}
+.maintenance-content{gap:0;align-items:stretch;border:1px solid var(--maintenance-line);border-radius:14px;overflow:hidden;background:var(--maintenance-surface);box-shadow:0 8px 30px #193b6610;grid-template-columns:minmax(0,1.65fr) minmax(270px,1fr)}
+.maintenance-copy{padding:48px}
+.maintenance-kicker{font-size:10px;letter-spacing:.06em;margin-bottom:20px}
+.maintenance-copy h1{font-size:clamp(32px,3.8vw,46px);line-height:1.12;letter-spacing:-.035em}
+.maintenance-description{font-size:14px;line-height:1.85;margin-top:20px}
+.maintenance-public-message{margin-top:25px;padding:17px 19px;border-left:3px solid #467fca;border-radius:0 6px 6px 0;background:#f0f5fc}
+.maintenance-public-message>span{display:block;color:#315b91;font-size:10px;font-weight:650;margin-bottom:8px;letter-spacing:.035em}
+.maintenance-public-message>p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--maintenance-ink);font-size:14px;line-height:1.8}
+.maintenance-content .maintenance-details{padding:48px 30px;border:0;border-left:1px solid var(--maintenance-line);border-radius:0;background:#fafbfd}
+.maintenance-details h2{font-size:16px;margin-top:20px}
+.maintenance-content .maintenance-feedback{min-height:0;margin-top:25px;padding-top:19px;border-top:1px solid var(--maintenance-line)}
+.site-maintenance-actions{gap:18px;margin-top:25px}
+.site-maintenance-actions .primary-button{padding:11px 16px;font-size:12px}
+.maintenance-footer{min-height:68px}
+:root[data-theme="dark"] .site-maintenance-page{background:#101925}
+:root[data-theme="dark"] .maintenance-content .maintenance-details{background:#121d2b}
+:root[data-theme="dark"] .maintenance-public-message,:root[data-theme="dark"] .maintenance-state-label{background:#1b2d46;border-color:#324c6e}
+:root[data-theme="dark"] .maintenance-public-message>span,:root[data-theme="dark"] .maintenance-state-label{color:#a0c1ee}
+@media(max-width:760px){.maintenance-content{grid-template-columns:minmax(0,1fr)}.maintenance-copy{padding:30px 25px}.maintenance-content .maintenance-details{padding:25px;border-left:0;border-top:1px solid var(--maintenance-line)}.maintenance-main{padding:28px 0}.maintenance-details dl{margin-top:18px}.maintenance-header-actions{gap:10px}.maintenance-state-label{font-size:10px;padding:6px 8px}.maintenance-brand strong{font-size:16px}}
+@media(max-width:420px){.site-maintenance-page{padding:0 16px}.maintenance-state-label{display:none}.maintenance-copy{padding:26px 21px}.maintenance-copy h1{font-size:34px}.maintenance-content .maintenance-details{padding:22px}.site-maintenance-actions{align-items:stretch;gap:15px}.site-maintenance-actions .primary-button{justify-content:center}.maintenance-website-link{justify-content:center}}
 .site-access-panel .site-access-controls{margin-top:20px}
 :root[data-theme="dark"] .site-access-panel .maintenance-reason-field textarea{background:#151f2d;border-color:#334d6c;color:#dbe6f4}
 :root[data-theme="dark"] .maintenance-reason-field>small,:root[data-theme="dark"] .maintenance-reason-count{color:#a3b3c9}
