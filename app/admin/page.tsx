@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, CirclePlus, LoaderCircle, LogOut, Megaphone, Pencil, Power, Save, Send, ShieldCheck, Trash2, Wrench, X } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { AdminOperationsPanels } from "@/components/admin-operations-panels";
 import { PortalMaintenanceControl } from "@/components/portal-maintenance-control";
 
 type Service = { id: string; name: string; category: string; kind: "fivem" | "website" | "http"; endpoint: string; enabled: boolean | number; paused: boolean | number; maintenance: boolean | number; maintenanceMessage: string };
@@ -176,7 +177,8 @@ export default function AdminPage() {
     setEditing(service.id);
     setDraft({ name: service.name, category: service.category, kind: service.kind, endpoint: service.endpoint, enabled: Boolean(service.enabled), paused: Boolean(service.paused), maintenance: Boolean(service.maintenance), maintenanceMessage: service.maintenanceMessage || "" });
     setError(""); setNotice("");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    document.getElementById("service-editor-panel")?.setAttribute("open", "");
+    document.getElementById("service-editor-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   async function toggleService(service: Service, visibleWhilePaused = true) {
@@ -264,6 +266,7 @@ export default function AdminPage() {
         {notice && <p className="form-success notice" role="status"><Check size={16} /> {notice}</p>}
 
         <PortalMaintenanceControl onChanged={loadServices} />
+        <AdminOperationsPanels services={services} onChanged={loadServices} />
         <details className="admin-panel site-access-panel admin-collapsible" aria-labelledby="site-access-title">
           <summary className="admin-collapse-heading"><div className="panel-heading"><span className="panel-icon"><Wrench size={18} /></span><div><h2 id="site-access-title">Toegang tot de statuswebsite</h2><p>Sluit de hele website voor bezoekers tijdens onderhoud. Het beheerpanel en de achtergrondmonitor blijven werken.</p></div></div></summary><div className="admin-collapse-content">
           <label className="maintenance-reason-field"><span>Reden voor bezoekers</span><small>Deze tekst verschijnt op de onderhoudspagina.</small><textarea className="portal-maintenance-reason" rows={3} minLength={5} maxLength={500} value={siteReason} onChange={(event) => setSiteReason(event.target.value)} disabled={busy || !siteSettings} placeholder="Bijvoorbeeld: we werken de statuswebsite bij. Bedankt voor je geduld." /><span className="maintenance-reason-count">{siteReason.length}/500 tekens</span></label>
@@ -274,8 +277,8 @@ export default function AdminPage() {
           </div>
         </div></details>
 
-        <section className="admin-panel announcements-panel" aria-labelledby="announcements-admin-title">
-          <div className="panel-heading"><span className="panel-icon"><Megaphone size={18} /></span><div><h2 id="announcements-admin-title">Algemene storing of mededeling <span className="small-count">{announcements.length}</span></h2><p>Publiceer een los bericht boven de actieve incidenten. Concepten zijn alleen zichtbaar in dit beheerpanel.</p></div></div>
+        <details className="admin-panel admin-collapsible announcements-panel" aria-labelledby="announcements-admin-title">
+          <summary className="admin-collapse-heading"><div className="panel-heading"><span className="panel-icon"><Megaphone size={18} /></span><div><h2 id="announcements-admin-title">Algemene storing of mededeling <span className="small-count">{announcements.length}</span></h2><p>Publiceer een los bericht boven de actieve incidenten. Concepten zijn alleen zichtbaar in dit beheerpanel.</p></div></div></summary>
           <form id="announcement-form" className="admin-form announcement-form" onSubmit={saveAnnouncement}>
             <label>Type melding<select value={announcementDraft.kind} onChange={(event) => setAnnouncementDraft({ ...announcementDraft, kind: event.target.value as AnnouncementDraft["kind"] })}><option value="notice">Mededeling</option><option value="outage">Algemene storing</option></select></label>
             <label className="wide-field">Titel<input maxLength={120} placeholder="Bijvoorbeeld: Problemen met het overheidsportaal" value={announcementDraft.title} onChange={(event) => setAnnouncementDraft({ ...announcementDraft, title: event.target.value })} required /></label>
@@ -298,10 +301,10 @@ export default function AdminPage() {
             </article>)}
             {announcements.length === 0 && <div className="announcement-admin-empty"><Megaphone size={17} /><span>Nog geen algemene meldingen. Maak hierboven je eerste bericht aan.</span></div>}
           </div>
-        </section>
+        </details>
 
-        <section className="admin-panel">
-          <div className="panel-heading"><span className="panel-icon"><CirclePlus size={18} /></span><div><h2>{editing ? "Dienst aanpassen" : "Dienst toevoegen"}</h2><p>Vul de basisgegevens in. De controle wordt elke 5 seconden herhaald.</p></div></div>
+        <details className="admin-panel admin-collapsible" id="service-editor-panel">
+          <summary className="admin-collapse-heading"><div className="panel-heading"><span className="panel-icon"><CirclePlus size={18} /></span><div><h2>{editing ? "Dienst aanpassen" : "Dienst toevoegen"}</h2><p>Vul de basisgegevens in. De controle wordt elke 5 seconden herhaald.</p></div></div></summary>
           <form className="admin-form service-form" onSubmit={saveService}>
             <label>Naam<input maxLength={70} placeholder="Bijvoorbeeld: Main Game Server" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required /></label>
             <label>Categorie<select value={draft.category} onChange={(event) => setDraft({ ...draft, category: event.target.value })}><option>FiveM servers</option><option>Websites</option><option>Diensten</option><option>Discord</option></select></label>
@@ -310,10 +313,10 @@ export default function AdminPage() {
             <label className="wide-field maintenance-option"><span><input type="checkbox" checked={draft.maintenance} onChange={(event) => setDraft({ ...draft, maintenance: event.target.checked })} /> Deze dienst staat in onderhoud (oranje)</span><input maxLength={220} placeholder="Melding voor bezoekers, bijvoorbeeld: We voeren gepland onderhoud uit." value={draft.maintenanceMessage} onChange={(event) => setDraft({ ...draft, maintenanceMessage: event.target.value })} disabled={!draft.maintenance} /></label>
             <div className="form-actions"><button type="submit" className="primary-button" disabled={busy}>{busy ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}{editing ? "Wijzigingen opslaan" : "Dienst toevoegen"}</button>{editing && <button type="button" className="subtle-button" onClick={() => { setEditing(null); setDraft(emptyDraft); }}><X size={16} /> Annuleren</button>}</div>
           </form>
-        </section>
+        </details>
 
-        <section className="admin-panel services-panel">
-          <div className="panel-heading"><span className="panel-icon"><ShieldCheck size={18} /></span><div><h2>Ingestelde diensten <span className="small-count">{services.length}</span></h2><p>Pauzeer een dienst en kies of bezoekers hem rood blijven zien of dat hij wordt verborgen.</p></div></div>
+        <details className="admin-panel admin-collapsible services-panel">
+          <summary className="admin-collapse-heading"><div className="panel-heading"><span className="panel-icon"><ShieldCheck size={18} /></span><div><h2>Ingestelde diensten <span className="small-count">{services.length}</span></h2><p>Pauzeer een dienst en kies of bezoekers hem rood blijven zien of dat hij wordt verborgen.</p></div></div></summary>
           <div className="managed-services">
             {services.map((service) => (
               <article className="managed-service" key={service.id}>
@@ -324,7 +327,7 @@ export default function AdminPage() {
             ))}
             {services.length === 0 && <div className="empty-group">Geen diensten gevonden.</div>}
           </div>
-        </section>
+        </details>
         {pauseTarget && (
           <div className="pause-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setPauseTarget(null); }}>
             <section className="pause-dialog" role="dialog" aria-modal="true" aria-labelledby="pause-dialog-title">

@@ -1,4 +1,6 @@
-import { hasAdminSession, isSameOrigin, listServices, saveService } from "@/app/lib/server";
+import { setPortalMaintenance } from "@/app/lib/portal-control";
+import { logAdminAction } from "@/app/lib/admin-storage";
+import { hasAdminSession, isSameOrigin } from "@/app/lib/server";
 
 export const dynamic = "force-dynamic";
 const origin = "https://overheid.amsterdamrp.nl";
@@ -28,22 +30,9 @@ export async function PUT(request: Request) {
   if (!body || typeof body.enabled !== "boolean" || typeof body.reason !== "string" || body.reason.trim().length > 500 || (body.enabled && body.reason.trim().length < 5))
     return Response.json({ error: "Vul een onderhoudsreden in van 5 tot 500 tekens." }, { status: 400, headers });
   try {
-    const response = await fetch(`${origin}/api/status-control/maintenance`, {
-      method: "PUT", cache: "no-store", redirect: "error", signal: AbortSignal.timeout(20000),
-      headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ enabled: body.enabled, reason: body.reason.trim() }),
-    });
-    const data = await response.json() as PortalResponse;
-    if (!response.ok || data.maintenance?.enabled !== body.enabled) throw new Error();
-    let warning: string | undefined;
-    try {
-      for (const service of await listServices(true)) {
-        const url = new URL(service.endpoint);
-        if (service.kind === "website" && url.hostname === "overheid.amsterdamrp.nl")
-          await saveService({ ...service, maintenance: body.enabled ? 1 : 0, maintenanceMessage: body.enabled ? body.reason.trim() : "" }, service.id);
-      }
-    } catch { warning = "Het overheidsportaal is aangepast, maar de handmatige onderhoudsstatus op de statuspagina kon niet worden bijgewerkt."; }
-    return Response.json({ maintenance: data.maintenance, warning }, { headers });
+    const maintenance=await setPortalMaintenance(body.enabled,body.reason.trim());
+    await logAdminAction(body.enabled ? "Overheidsportaal gesloten · onderhoud" : "Overheidsportaal heropend", "Overheidsportaal");
+    return Response.json({ maintenance }, { headers });
   } catch {
     return Response.json({ error: "Geen bevestiging van het overheidsportaal ontvangen. De wijziging kan al uitgevoerd zijn. Ververs de onderhoudsstatus voordat je opnieuw probeert." }, { status: 502, headers });
   }

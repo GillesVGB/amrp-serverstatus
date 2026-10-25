@@ -1,5 +1,6 @@
 import { GET as runStatusCheck } from "../status/route";
 import { recordMonitorHeartbeat } from "@/app/lib/server";
+import { runScheduledMaintenance } from "@/app/lib/admin-operations";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -11,6 +12,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Niet geautoriseerd." }, { status: 401 });
   }
 
+  try { await runScheduledMaintenance(); } catch { console.error("Onderhoudsplanning kon deze ronde niet worden uitgevoerd."); }
   const url = new URL("/api/status?range=1h", request.url);
   const response = await runStatusCheck(new Request(url, { method: "GET", headers: { "Cache-Control": "no-store", Authorization: `Bearer ${secret}` } }));
   const result = await response.json() as { checkedAt?: number; services?: unknown[]; error?: string };

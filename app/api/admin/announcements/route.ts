@@ -1,3 +1,4 @@
+import { logAdminAction } from "@/app/lib/admin-storage";
 import { hasAdminSession, isSameOrigin, listAnnouncements, listServices, saveAnnouncement, validateAnnouncement } from "@/app/lib/server";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,7 @@ export async function POST(request: Request) {
       affectedServices: draft.serviceIds.map((id) => ({ id, name: knownServices.get(id)! })),
     });
     if (!announcement) throw new Error("De melding kon niet worden aangemaakt.");
+    await logAdminAction(announcement.published ? "Melding aangemaakt en gepubliceerd" : "Conceptmelding aangemaakt", announcement.title);
     return Response.json({ announcement }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "De melding kon niet worden opgeslagen." }, { status: 400 });

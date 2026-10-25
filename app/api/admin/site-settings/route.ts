@@ -1,3 +1,4 @@
+import { logAdminAction } from "@/app/lib/admin-storage";
 import { getSiteSettings, hasAdminSession, isSameOrigin, saveSiteSettings } from "@/app/lib/server";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +37,7 @@ export async function PUT(request: Request) {
 
   try {
     const settings = await saveSiteSettings(maintenance, reason);
+    await logAdminAction(maintenance ? "Statuswebsite in onderhoud · reden opgeslagen" : "Statuswebsite heropend", "Statuswebsite");
     return Response.json({ settings }, { headers });
   } catch {
     return Response.json({ error: "De website-instellingen konden niet worden opgeslagen." }, { status: 503, headers });

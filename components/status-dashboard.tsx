@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Activity, ArrowUpRight, Bell, BellOff, Bot, ChartNoAxesColumn, Check, ChevronDown, CircleCheck, Clock3, Gamepad2, Globe, HeartPulse, Layers3, LayoutGrid, List, Megaphone, MessagesSquare, Radio, RefreshCw, Search, Server, Settings, ShieldAlert, ShieldCheck, TriangleAlert, WifiOff } from "lucide-react";
+import { Activity, ArrowUpRight, Bell, BellOff, Bot, ChartNoAxesColumn, Check, ChevronDown, CircleCheck, Clock3, Gamepad2, Globe, HeartPulse, Layers3, LayoutGrid, List, Megaphone, MessagesSquare, Radio, RefreshCw, Search, Server, Settings, ShieldAlert, ShieldCheck, TriangleAlert, WifiOff, Wrench } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CreatorCredit } from "@/components/creator-credit";
 import { SiteMaintenance } from "@/components/site-maintenance";
@@ -39,6 +39,7 @@ type Service = {
   kind: string;
   enabled: boolean;
   maintenance: boolean;
+  maintenanceMessage?: string;
   status: Status;
   message: string;
   responseMs: number | null;
@@ -522,10 +523,10 @@ export default function StatusDashboard() {
                     <ServiceVisual service={service} />
                     <div className="service-name-wrap">
                       <div className="service-name-heading"><span className="service-name">{service.name}</span><span className={`status-pill is-${service.status}`}><span className="pill-dot" />{statusLabels[service.status]}</span></div>
-                      {service.status === "operational" || service.status === "unknown" ? <span className="service-message">{service.status === "unknown" ? "Deze dienst is nog niet gecontroleerd." : `Reageert normaal${service.responseMs !== null ? ` · ${service.responseMs} ms` : ""}`}</span> : (
+                      {service.status === "maintenance" ? <p className="service-maintenance-reason"><Wrench size={14} aria-hidden="true" /><span>{service.maintenanceMessage || service.message}</span></p> : service.status === "operational" || service.status === "unknown" ? <span className="service-message">{service.status === "unknown" ? service.message || "Deze dienst is nog niet gecontroleerd." : `Reageert normaal${service.responseMs !== null ? ` · ${service.responseMs} ms` : ""}`}</span> : (
                         <>
                           <button className="service-details-toggle" onClick={() => setOpenDetails(openDetails === service.id ? null : service.id)} aria-expanded={openDetails === service.id}>
-                            {openDetails === service.id ? "Verberg details" : service.status === "maintenance" ? "Bekijk onderhoudsmelding" : "Bekijk storingsreden"}
+                            {openDetails === service.id ? "Verberg details" : "Bekijk storingsreden"}
                           </button>
                           {openDetails === service.id && <div className={`service-detail is-${service.status}`} role="note"><strong>{statusLabels[service.status]}</strong><span>{service.message}</span><small>Gecontroleerd om {new Date(service.checkedAt ?? Date.now()).toLocaleTimeString("nl-NL")}{service.responseMs !== null ? ` · ${service.responseMs} ms` : ""}</small></div>}
                         </>
@@ -547,7 +548,7 @@ export default function StatusDashboard() {
         {!loading && activeServices.length > 0 && filteredServices.length === 0 && <div className="empty-group"><strong>Geen diensten gevonden</strong><span>Pas je zoekopdracht of filter aan.</span><button type="button" onClick={clearServiceFilters}>Wis filters</button></div>}
       </div> : <div className="service-table-wrap"><table className="service-table"><thead><tr>{preferences.visibleColumns.map((column) => <th key={column} scope="col" aria-sort={sortColumn === column ? sortDirection === "asc" ? "ascending" : "descending" : "none"}><button type="button" onClick={() => changeSort(column)}>{serviceColumnLabels[column]}<span aria-hidden="true">{sortColumn === column ? sortDirection === "asc" ? " ↑" : " ↓" : " ↕"}</span></button></th>)}</tr></thead><tbody>
         {sortedServices.map((service) => <tr key={service.id}>
-          {preferences.visibleColumns.map((column) => <td key={column}>{column === "name" ? <strong className="table-service-name">{service.name}</strong> : column === "category" ? service.category : column === "status" ? <span className={`status-pill is-${service.status}`}><span className="pill-dot" />{statusLabels[service.status]}</span> : column === "uptime" ? service.uptime === null || service.uptime === undefined ? "—" : `${Number.isInteger(service.uptime) ? service.uptime : service.uptime.toFixed(2)}%` : column === "response" ? service.responseMs === null ? "—" : `${service.responseMs} ms` : service.players === null || service.players === undefined ? "—" : `${service.players}/${service.maxPlayers ?? "?"}`}</td>)}
+          {preferences.visibleColumns.map((column) => <td key={column}>{column === "name" ? <div><strong className="table-service-name">{service.name}</strong>{service.status === "maintenance" && <p className="service-maintenance-reason">{service.maintenanceMessage || service.message}</p>}</div> : column === "category" ? service.category : column === "status" ? <span className={`status-pill is-${service.status}`}><span className="pill-dot" />{statusLabels[service.status]}</span> : column === "uptime" ? service.uptime === null || service.uptime === undefined ? "—" : `${Number.isInteger(service.uptime) ? service.uptime : service.uptime.toFixed(2)}%` : column === "response" ? service.responseMs === null ? "—" : `${service.responseMs} ms` : service.players === null || service.players === undefined ? "—" : `${service.players}/${service.maxPlayers ?? "?"}`}</td>)}
         </tr>)}
         {loading && sortedServices.length === 0 && <tr><td className="table-empty" colSpan={preferences.visibleColumns.length}>Status wordt geladen…</td></tr>}
         {!loading && activeServices.length === 0 && <tr><td className="table-empty" colSpan={preferences.visibleColumns.length}>Er zijn nog geen diensten toegevoegd.</td></tr>}

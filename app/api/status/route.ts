@@ -2,6 +2,7 @@ import { getHistory, getMonitorHeartbeat, getSiteSettings, hasAdminSession, list
 import { getAnnouncedOutages, announcedOutageReason } from "@/app/lib/announcement-status";
 import { websiteMaintenanceReason } from '@/app/lib/website-maintenance';
 import { markDatabaseUnavailable } from "@/app/lib/database-availability";
+import { confirmAutomaticProbe } from "@/app/lib/admin-storage";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -94,11 +95,15 @@ export async function GET(request: Request) {
       isMonitor ? Promise.resolve(null) : getMonitorHeartbeat(),
     ]);
     const results = await Promise.all(services.map(async (service) => {
-      const current: Probe = service.paused === 1
+      let current: Probe = service.paused === 1
         ? { status: "down", message: "Deze dienst is gepauzeerd door een beheerder.", responseMs: null, players: null, maxPlayers: null }
         : service.maintenance === 1
           ? { status: "maintenance", message: service.maintenanceMessage || "Deze dienst is gepland in onderhoud.", responseMs: null, players: null, maxPlayers: null }
         : await probe(service);
+      const failures = await confirmAutomaticProbe(service.id, service.paused || service.maintenance ? "maintenance" : current.status, checkedAt);
+      if (!service.paused && !service.maintenance && (current.status === "down" || current.status === "degraded") && failures < 3) {
+        current = { ...current, status: "unknown", message: `Controle wordt bevestigd (${failures}/3): ${current.message}` };
+      }
       const bucket = Math.floor(checkedAt / 60_000);
       await recordHistory(service.id, bucket, checkedAt, current);
       const [history, incidentChange] = await Promise.all([

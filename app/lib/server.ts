@@ -228,6 +228,11 @@ export async function listServices(includeDisabled = false) {
   return rows.map((row) => ({ ...row, enabled: Number(row.enabled), paused: Number(row.paused), maintenance: Number(row.maintenance) })) as ServiceRow[];
 }
 
+export async function adminDatabase() {
+  await ensureSchema();
+  return sqlClient();
+}
+
 export async function saveService(service: Omit<ServiceRow, "id">, id = crypto.randomUUID()) {
   if (databaseUrl()) {
     await ensureSchema();
