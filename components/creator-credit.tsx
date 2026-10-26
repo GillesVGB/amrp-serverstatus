@@ -19,10 +19,7 @@ export function CreatorCredit() {
       const timeout = window.setTimeout(() => controller.abort(), 10_000);
 
       try {
-        const response = await fetch("/api/creator-avatar?format=json", {
-          cache: "no-store",
-          signal: controller.signal,
-        });
+        const response = await fetch("/api/creator-avatar?format=json", { signal: controller.signal });
         if (!response.ok) return;
 
         const data: unknown = await response.json();
@@ -41,7 +38,7 @@ export function CreatorCredit() {
 
     const refresh = () => { void refreshAvatar(); };
     refresh();
-    const interval = window.setInterval(refresh, 60_000);
+    const interval = window.setInterval(refresh, 900_000);
     document.addEventListener("visibilitychange", refresh);
     window.addEventListener("focus", refresh);
 

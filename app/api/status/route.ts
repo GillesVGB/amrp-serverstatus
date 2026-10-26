@@ -7,6 +7,10 @@ export const revalidate = 0;
 
 const validRanges: HistoryRange[] = ["1h", "12h", "24h"];
 const privateNoStore = { "Cache-Control": "private, no-store, no-cache, must-revalidate", Pragma: "no-cache", Expires: "0" };
+const publicCache = {
+  "Cache-Control": "public, max-age=15",
+  "Vercel-CDN-Cache-Control": "public, s-maxage=60",
+};
 const validStatuses = new Set<ServiceStatus>(["operational", "degraded", "down", "unknown", "maintenance"]);
 type CurrentStatus = { status: ServiceStatus; message: string; responseMs: number | null; players: number | null; maxPlayers: number | null; checkedAt: number | null };
 
@@ -20,11 +24,17 @@ function statusSnapshot(snapshot: MonitorSnapshot | undefined): CurrentStatus {
 export async function GET(request: Request) {
   try {
     const settings = await getSiteSettingsReadOnly();
-    if (settings.maintenance && !await hasAdminSession(request)) {
-      return Response.json({ maintenance: true, reason: settings.reason, error: "De statuswebsite is tijdelijk in onderhoud." }, {
-        status: 503,
-        headers: { ...privateNoStore, "Retry-After": "60" },
-      });
+    let cacheHeaders: Record<string, string> = publicCache;
+    if (settings.maintenance) {
+      const isAdmin = await hasAdminSession(request);
+      if (!isAdmin) {
+        return Response.json({ maintenance: true, reason: settings.reason, error: "De statuswebsite is tijdelijk in onderhoud." }, {
+          status: 503,
+          headers: { ...privateNoStore, "Retry-After": "60" },
+        });
+      }
+      // Never put the maintenance bypass for an authenticated admin in a shared cache.
+      cacheHeaders = privateNoStore;
     }
 
     const requestedRange = new URL(request.url).searchParams.get("range") as HistoryRange | null;
@@ -78,7 +88,7 @@ export async function GET(request: Request) {
       monitorStatus,
       range,
       checkIntervalSeconds: 600,
-    }, { headers: privateNoStore });
+    }, { headers: cacheHeaders });
   } catch (error) {
     const failure = markDatabaseUnavailable(error);
     return Response.json({ unavailable: true, error: "De statusgegevens zijn tijdelijk niet beschikbaar. We proberen het later opnieuw." }, {

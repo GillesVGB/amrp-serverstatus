@@ -273,7 +273,7 @@ export default function StatusDashboard() {
     checking.current = true;
     if (manual) setRefreshing(true);
     try {
-      const response = await fetch(`/api/status?range=${range}`, { cache: "no-store" });
+      const response = await fetch(`/api/status?range=${range}`);
       if (response.status === 503) {
         const failure = await response.json() as { maintenance?: boolean; reason?: string; unavailable?: boolean; error?: string };
         if (failure.unavailable) {

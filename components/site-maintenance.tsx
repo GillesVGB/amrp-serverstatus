@@ -28,7 +28,7 @@ export function SiteMaintenance({ preview = false, unavailable = false, reason =
     if (manual) setFeedback("We controleren of de statuswebsite weer beschikbaar is…");
     const timeout = window.setTimeout(() => controller.abort(), 10_000);
     try {
-      const response = await fetch("/api/site-state", { cache: "no-store", signal: controller.signal });
+      const response = await fetch("/api/site-state", { signal: controller.signal });
       if (!response.ok) {
         const retryAfter = Number(response.headers.get("Retry-After"));
         retryNotBefore.current = Date.now() + (Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter, 900) : 30) * 1000;
@@ -79,7 +79,7 @@ export function SiteMaintenance({ preview = false, unavailable = false, reason =
       if (document.visibilityState === "visible") void checkAvailability();
     };
     const first = preview ? null : window.setTimeout(refresh, 0);
-    const interval = preview ? null : window.setInterval(refresh, unavailable ? 30_000 : 15_000);
+    const interval = preview ? null : window.setInterval(refresh, 60_000);
     if (!preview) {
       document.addEventListener("visibilitychange", refresh);
       window.addEventListener("focus", refresh);
@@ -93,7 +93,7 @@ export function SiteMaintenance({ preview = false, unavailable = false, reason =
       document.removeEventListener("visibilitychange", refresh);
       window.removeEventListener("focus", refresh);
     };
-  }, [checkAvailability, preview, unavailable]);
+  }, [checkAvailability, preview]);
 
   const checking = checkState === "checking";
   const FeedbackIcon = checking ? LoaderCircle : checkState === "error" ? TriangleAlert : checkState === "reopening" ? CircleCheck : RefreshCw;
@@ -134,7 +134,7 @@ export function SiteMaintenance({ preview = false, unavailable = false, reason =
             <dl>
               <div><dt>{unavailable ? "Statusgegevens" : "Statuswebsite"}</dt><dd>{unavailable ? "Niet beschikbaar" : "Tijdelijk gesloten"}</dd></div>
               <div><dt>Heropening</dt><dd>Zodra beschikbaar</dd></div>
-              <div><dt>{preview ? "Weergave" : "Nieuwe controle"}</dt><dd>{preview ? "Beheervoorbeeld" : unavailable ? "Automatisch" : "Elke 15 seconden"}</dd></div>
+              <div><dt>{preview ? "Weergave" : "Nieuwe controle"}</dt><dd>{preview ? "Beheervoorbeeld" : unavailable ? "Automatisch" : "Elke minuut"}</dd></div>
             </dl>
           </aside>
         </section>

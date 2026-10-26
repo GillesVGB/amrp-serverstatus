@@ -1,7 +1,11 @@
 import { z } from "zod";
 
 const CREATOR_ID = "960090714950225970";
-const headers = { "Cache-Control": "no-store" };
+const privateNoStore = { "Cache-Control": "private, no-store" };
+const publicAvatarCache = {
+  "Cache-Control": "public, max-age=300",
+  "Vercel-CDN-Cache-Control": "public, s-maxage=900, stale-while-revalidate=900",
+};
 const profileSchema = z.object({
   success: z.literal(true),
   data: z.object({
@@ -27,18 +31,18 @@ export async function GET(request: Request) {
       : null;
 
     if (new URL(request.url).searchParams.get("format") === "json") {
-      return Response.json({ avatarUrl }, { headers });
+      return Response.json({ avatarUrl }, { headers: publicAvatarCache });
     }
-    if (!avatarUrl) return new Response(null, { status: 404, headers });
+    if (!avatarUrl) return new Response(null, { status: 404, headers: publicAvatarCache });
 
     return new Response(null, {
       status: 302,
-      headers: { ...headers, Location: avatarUrl },
+      headers: { ...publicAvatarCache, Location: avatarUrl },
     });
   } catch {
     return new Response(null, {
       status: 503,
-      headers,
+      headers: privateNoStore,
     });
   }
 }

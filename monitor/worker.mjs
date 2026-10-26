@@ -12,7 +12,6 @@ for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => { stopping 
 
 console.log(`Amsterdam Roleplay-monitor actief; controle-interval ${intervalMs} ms.`);
 while (!stopping) {
-  const startedAt = Date.now();
   let retryDelayMs = intervalMs;
   try {
     const response = await fetch(`${baseUrl}/api/monitor`, {
@@ -37,8 +36,9 @@ while (!stopping) {
     console.error(`Statuscontrole mislukt: ${description}.`);
     retryDelayMs = Math.max(intervalMs, 30_000);
   }
-  const delay = Math.max(250, retryDelayMs - (Date.now() - startedAt));
-  if (!stopping) await new Promise((resolve) => setTimeout(resolve, delay));
+  // The shared cooldown starts after the request has begun. Wait a full
+  // interval after completion so the next round cannot arrive too early.
+  if (!stopping) await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
 }
 
 console.log("Amsterdam Roleplay-monitor gestopt.");

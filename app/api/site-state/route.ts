@@ -1,16 +1,20 @@
-import { getSiteSettings } from "@/app/lib/server";
+import { getSiteSettingsReadOnly } from "@/app/lib/server";
 import { markDatabaseUnavailable } from "@/app/lib/database-availability";
 
 export const dynamic = "force-dynamic";
 
-const headers = { "Cache-Control": "no-store" };
+const publicCache = {
+  "Cache-Control": "public, max-age=5",
+  "Vercel-CDN-Cache-Control": "public, s-maxage=15",
+};
+const privateNoStore = { "Cache-Control": "private, no-store" };
 
 export async function GET() {
   try {
-    const { maintenance, reason } = await getSiteSettings();
-    return Response.json({ maintenance, reason: maintenance ? reason : "" }, { headers });
+    const { maintenance, reason } = await getSiteSettingsReadOnly();
+    return Response.json({ maintenance, reason: maintenance ? reason : "" }, { headers: publicCache });
   } catch (error) {
     const failure = markDatabaseUnavailable(error);
-    return Response.json({ unavailable: true, error: "De statusgegevens zijn tijdelijk niet beschikbaar." }, { status: 503, headers: { ...headers, "Retry-After": String(failure.retryAfterSeconds) } });
+    return Response.json({ unavailable: true, error: "De statusgegevens zijn tijdelijk niet beschikbaar." }, { status: 503, headers: { ...privateNoStore, "Retry-After": String(failure.retryAfterSeconds) } });
   }
 }

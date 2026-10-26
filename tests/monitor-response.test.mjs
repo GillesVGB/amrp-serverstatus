@@ -92,8 +92,9 @@ function harness(options = {}) {
   imports["@/app/lib/website-maintenance"] = load("app/lib/website-maintenance.ts");
   const status = load("app/api/status/route.ts");
   const monitor = load("app/api/monitor/route.ts");
+  const siteState = load("app/api/site-state/route.ts");
   return {
-    calls, services, status, monitor,
+    calls, services, status, monitor, siteState,
     request: (range = "1h") => new Request(`https://status.example/api/status?range=${range}`),
     monitorRequest: (bearer = environment.MONITOR_SECRET) => new Request("https://status.example/api/monitor", { method: "POST", headers: { Authorization: `Bearer ${bearer}` } }),
   };
@@ -114,7 +115,8 @@ test("public status reads the last monitor snapshot and preserves dashboard fiel
   const response = await h.status.GET(h.request("12h"));
   const data = await response.json();
   assert.equal(response.status, 200);
-  assert.match(response.headers.get("Cache-Control"), /private, no-store/);
+  assert.equal(response.headers.get("Cache-Control"), "public, max-age=15");
+  assert.equal(response.headers.get("Vercel-CDN-Cache-Control"), "public, s-maxage=60");
   assert.equal(data.range, "12h");
   assert.equal(data.checkIntervalSeconds, 600);
   assert.equal(data.monitorStatus, "active");
@@ -140,6 +142,7 @@ test("public maintenance mode hides dashboard data while an authenticated admin 
   const blockedData = await blocked.json();
   assert.equal(blocked.status, 503);
   assert.equal(blocked.headers.get("Cache-Control").startsWith("private, no-store"), true);
+  assert.equal(blocked.headers.has("Vercel-CDN-Cache-Control"), false);
   assert.equal(blockedData.maintenance, true);
   assert.equal(h.calls.dashboard, 0);
   assert.equal(h.calls.probes.length, 0);
@@ -147,7 +150,31 @@ test("public maintenance mode hides dashboard data while an authenticated admin 
   const admin = harness({ siteMaintenance: true, admin: true });
   const visible = await admin.status.GET(admin.request());
   assert.equal(visible.status, 200);
+  assert.match(visible.headers.get("Cache-Control"), /private, no-store/);
+  assert.equal(visible.headers.has("Vercel-CDN-Cache-Control"), false);
   assert.equal(admin.calls.dashboard, 1);
+});
+
+test("the maintenance availability route caches only public state and performs no dashboard reads or writes", async () => {
+  const h = harness();
+  const open = await h.siteState.GET();
+  assert.deepEqual(await open.json(), { maintenance: false, reason: "" });
+  assert.equal(open.headers.get("Vercel-CDN-Cache-Control"), "public, s-maxage=15");
+  assert.equal(h.calls.settings, 1);
+  assert.equal(h.calls.dashboard, 0);
+  assert.equal(h.calls.adminSession, 0);
+  assert.equal(h.calls.recorded.length, 0);
+  assert.equal(h.calls.probes.length, 0);
+
+  const maintenance = harness({ siteMaintenance: true });
+  assert.deepEqual(await (await maintenance.siteState.GET()).json(), { maintenance: true, reason: "Gepland onderhoud" });
+
+  const unavailable = harness({ databaseError: new Error("private connection details") });
+  const failed = await unavailable.siteState.GET();
+  assert.equal(failed.status, 503);
+  assert.match(failed.headers.get("Cache-Control"), /private, no-store/);
+  assert.equal(failed.headers.has("Vercel-CDN-Cache-Control"), false);
+  assert.doesNotMatch(JSON.stringify(await failed.json()), /private connection details/);
 });
 
 test("an empty or stale monitor snapshot is shown as unknown, never as green", async () => {
@@ -232,7 +259,9 @@ test("monitor coordination enforces a shared cooldown after a completed check", 
   assert.equal(await exports.acquireMonitorLease(), null);
   assert.equal(await exports.recordMonitorSnapshot(first, now, []), true);
   assert.equal(await exports.acquireMonitorLease(), null);
-  now += 8_001;
+  now += 599_999;
+  assert.equal(await exports.acquireMonitorLease(), null);
+  now += 1;
   assert.ok(await exports.acquireMonitorLease());
 });
 
@@ -244,11 +273,40 @@ test("wrong monitor secret is rejected before it can acquire a lease or check se
   assert.equal(h.calls.services, 0);
 });
 
+test("the worker waits a full interval after completing a request so the next round clears the shared cooldown", async () => {
+  let now = 1_000_000;
+  let stop;
+  const delays = [];
+  class TestDate extends Date { static now() { return now; } }
+  const worker = readFileSync(new URL("monitor/worker.mjs", root), "utf8");
+  await vm.runInNewContext("(async () => {\n" + worker + "\n})()", {
+    process: {
+      env: { STATUS_API_URL: "https://status.example", MONITOR_SECRET: "test-monitor-secret" },
+      on: (signal, callback) => { if (signal === "SIGTERM") stop = callback; },
+      exit: () => { throw new Error("The configured worker should start"); },
+    },
+    console: { log() {}, error() {} },
+    Date: TestDate, AbortSignal,
+    fetch: async () => {
+      now += 5_000;
+      return Response.json({ checkedAt: now, checkedServices: 1 });
+    },
+    setTimeout: (resolve, delay) => {
+      delays.push(delay);
+      stop();
+      resolve();
+    },
+  }, { filename: "monitor/worker.mjs" });
+  assert.deepEqual(delays, [600_000]);
+});
+
 test("database failures return a generic retry response and never expose private connection details", async () => {
   const h = harness({ databaseError: new Error("SQL connection password private quota") });
   const response = await h.status.GET(h.request());
   const data = await response.json();
   assert.equal(response.status, 503);
+  assert.match(response.headers.get("Cache-Control"), /private, no-store/);
+  assert.equal(response.headers.has("Vercel-CDN-Cache-Control"), false);
   assert.equal(response.headers.get("Retry-After"), "300");
   assert.equal(data.unavailable, true);
   assert.equal("services" in data, false);

@@ -560,7 +560,9 @@ function parseMonitorSnapshot(value: unknown): MonitorSnapshot[] {
 /** The monitor owns these writes; the dashboard only consumes the latest snapshot. */
 export async function acquireMonitorLease(leaseMs = 120_000): Promise<string | null> {
   const now = Date.now();
-  const minimumGapMs = 8_000;
+  // Keep the database as the final guard against duplicate workers. A worker
+  // may be restarted or scaled independently of its local polling interval.
+  const minimumGapMs = 600_000;
   const token = crypto.randomUUID();
   if (!databaseUrl()) {
     if (memoryMonitorHeartbeat !== null && memoryMonitorHeartbeat > now - minimumGapMs) return null;
