@@ -116,7 +116,7 @@ test("public status reads the last monitor snapshot and preserves dashboard fiel
   assert.equal(response.status, 200);
   assert.match(response.headers.get("Cache-Control"), /private, no-store/);
   assert.equal(data.range, "12h");
-  assert.equal(data.checkIntervalSeconds, 10);
+  assert.equal(data.checkIntervalSeconds, 600);
   assert.equal(data.monitorStatus, "active");
   assert.equal(data.checkedAt, checkedAt);
   assert.deepEqual(Object.keys(data).sort(), ["announcements", "checkIntervalSeconds", "checkedAt", "incidents", "monitorCheckedAt", "monitorStatus", "range", "services"].sort());

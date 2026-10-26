@@ -68,7 +68,7 @@ export async function GET(request: Request) {
       return reason ? { ...service, status: "down" as const, message: reason } : service;
     });
     const monitorCheckedAt = data.monitorCheckedAt;
-    const monitorStatus = monitorCheckedAt === null ? "unknown" : now - monitorCheckedAt > 30_000 ? "stale" : "active";
+    const monitorStatus = monitorCheckedAt === null ? "unknown" : now - monitorCheckedAt > 1_800_000 ? "stale" : "active";
     return Response.json({
       services: publicServices,
       incidents: data.incidents,
@@ -77,7 +77,7 @@ export async function GET(request: Request) {
       monitorCheckedAt,
       monitorStatus,
       range,
-      checkIntervalSeconds: 10,
+      checkIntervalSeconds: 600,
     }, { headers: privateNoStore });
   } catch (error) {
     const failure = markDatabaseUnavailable(error);

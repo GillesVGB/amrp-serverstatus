@@ -1,6 +1,6 @@
 const baseUrl = process.env.STATUS_API_URL?.replace(/\/$/, "");
 const secret = process.env.MONITOR_SECRET;
-const intervalMs = Math.max(10_000, Number(process.env.STATUS_CHECK_INTERVAL_MS) || 10_000);
+const intervalMs = Math.max(600_000, Number(process.env.STATUS_CHECK_INTERVAL_MS) || 600_000);
 
 if (!baseUrl || !secret) {
   console.error("Configureer STATUS_API_URL en MONITOR_SECRET voordat je de monitor start.");

@@ -330,7 +330,7 @@ export default function StatusDashboard() {
   useEffect(() => {
     const preference = setTimeout(() => setNotificationsEnabled(localStorage.getItem("amrp_status_subscribed") === "true"), 0);
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const schedule = (delay = document.visibilityState === "hidden" ? 30_000 : 10_000) => {
+    const schedule = (delay = document.visibilityState === "hidden" ? 1_200_000 : 600_000) => {
       if (timer) clearTimeout(timer);
       if (statusUnavailable) return;
       timer = setTimeout(async () => {
