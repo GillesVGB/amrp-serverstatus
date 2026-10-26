@@ -37,7 +37,10 @@ CREATE TABLE IF NOT EXISTS amrp_status_incidents (
 
 CREATE TABLE IF NOT EXISTS amrp_status_monitor (
   id SMALLINT PRIMARY KEY CHECK (id = 1),
-  last_successful_at DOUBLE PRECISION NOT NULL
+  last_successful_at DOUBLE PRECISION NOT NULL,
+  snapshot JSONB NOT NULL DEFAULT '[]'::jsonb,
+  lease_token TEXT NOT NULL DEFAULT '',
+  lease_until BIGINT NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS amrp_status_announcements (

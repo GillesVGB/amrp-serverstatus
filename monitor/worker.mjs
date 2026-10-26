@@ -1,6 +1,6 @@
 const baseUrl = process.env.STATUS_API_URL?.replace(/\/$/, "");
 const secret = process.env.MONITOR_SECRET;
-const intervalMs = Math.max(5000, Number(process.env.STATUS_CHECK_INTERVAL_MS) || 5000);
+const intervalMs = Math.max(10_000, Number(process.env.STATUS_CHECK_INTERVAL_MS) || 10_000);
 
 if (!baseUrl || !secret) {
   console.error("Configureer STATUS_API_URL en MONITOR_SECRET voordat je de monitor start.");
@@ -29,7 +29,8 @@ while (!stopping) {
         : Math.max(intervalMs, 30_000);
     } else {
       const result = await response.json();
-      console.log(`Controle voltooid: ${result.checkedServices} diensten · ${new Date(result.checkedAt).toISOString()}`);
+      if (result.skipped) console.log("Controle overgeslagen: er is kort geleden al gemeten of een andere worker is actief.");
+      else console.log(`Controle voltooid: ${result.checkedServices} diensten · ${new Date(result.checkedAt).toISOString()}`);
     }
   } catch (error) {
     const description = error instanceof Error && error.name === "AbortError" ? "time-out" : "verbinding niet beschikbaar";

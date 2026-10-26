@@ -23,7 +23,24 @@ export const DEFAULT_SERVICES: ServiceRow[] = [
   { id: "overheid", name: "Overheidsportaal", category: "Websites", kind: "website", endpoint: "https://overheid.amsterdamrp.nl/", enabled: 1, paused: 0, maintenance: 0, maintenanceMessage: "" },
 ];
 
-type HistoryRow = { status: ServiceStatus; checkedAt: number; message: string };
+export type HistoryRow = { status: ServiceStatus; checkedAt: number; message: string };
+export type MonitorSnapshot = {
+  id: string;
+  status: ServiceStatus;
+  message: string;
+  responseMs: number | null;
+  players: number | null;
+  maxPlayers: number | null;
+  checkedAt: number;
+};
+export type StatusDashboardData = {
+  services: ServiceRow[];
+  snapshot: MonitorSnapshot[];
+  monitorCheckedAt: number | null;
+  histories: Record<string, (HistoryRow | null)[]>;
+  incidents: IncidentRow[];
+  announcements: AnnouncementRow[];
+};
 export type IncidentRow = { id: number; serviceId: string; serviceName: string; status: ServiceStatus; reason: string; startedAt: number; resolvedAt: number | null };
 export type IncidentChange = { kind: "started" | "updated" | "recovered"; previousStatus?: ServiceStatus; incident: IncidentRow };
 export type AnnouncementService = { id: string; name: string };
@@ -38,6 +55,8 @@ const memoryIncidentHistory: IncidentRow[] = [];
 const memoryAnnouncements: AnnouncementRow[] = [];
 let memorySiteSettings: SiteSettings = { maintenance: false, reason: "", updatedAt: null };
 let memoryMonitorHeartbeat: number | null = null;
+let memoryMonitorSnapshot: MonitorSnapshot[] = [];
+let memoryMonitorLease: { token: string; until: number } | null = null;
 let schemaSetup: Promise<void> | undefined;
 let sqlSetup: Promise<DatabaseClient> | undefined;
 let siteSettingsRead: Promise<SiteSettings> | undefined;
@@ -106,8 +125,14 @@ async function ensureSchema() {
       await sql`CREATE INDEX IF NOT EXISTS amrp_status_incidents_started_at_idx ON amrp_status_incidents (started_at DESC)`;
       await sql`CREATE TABLE IF NOT EXISTS amrp_status_monitor (
         id SMALLINT PRIMARY KEY CHECK (id = 1),
-        last_successful_at DOUBLE PRECISION NOT NULL
+        last_successful_at DOUBLE PRECISION NOT NULL,
+        snapshot JSONB NOT NULL DEFAULT '[]'::jsonb,
+        lease_token TEXT NOT NULL DEFAULT '',
+        lease_until BIGINT NOT NULL DEFAULT 0
       )`;
+      await sql`ALTER TABLE amrp_status_monitor ADD COLUMN IF NOT EXISTS snapshot JSONB NOT NULL DEFAULT '[]'::jsonb`;
+      await sql`ALTER TABLE amrp_status_monitor ADD COLUMN IF NOT EXISTS lease_token TEXT NOT NULL DEFAULT ''`;
+      await sql`ALTER TABLE amrp_status_monitor ADD COLUMN IF NOT EXISTS lease_until BIGINT NOT NULL DEFAULT 0`;
       await sql`CREATE TABLE IF NOT EXISTS amrp_status_announcements (
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
@@ -506,24 +531,203 @@ export async function pruneHistory(before: number) {
   for (const [id, history] of memoryHistory) memoryHistory.set(id, history.filter((sample) => sample.checkedAt >= before));
 }
 
-export async function recordMonitorHeartbeat(checkedAt: number) {
-  if (databaseUrl()) {
-    await ensureSchema();
-    const sql = await sqlClient();
-    await sql`INSERT INTO amrp_status_monitor (id, last_successful_at) VALUES (1, ${checkedAt}) ON CONFLICT (id) DO UPDATE SET last_successful_at = EXCLUDED.last_successful_at`;
-    return;
+const validServiceStatuses = new Set<ServiceStatus>(["operational", "degraded", "down", "unknown", "maintenance"]);
+
+function parseMonitorSnapshot(value: unknown): MonitorSnapshot[] {
+  let parsed = value;
+  if (typeof parsed === "string") {
+    try { parsed = JSON.parse(parsed) as unknown; } catch { return []; }
   }
-  memoryMonitorHeartbeat = checkedAt;
+  if (!Array.isArray(parsed)) return [];
+  return parsed.flatMap((item): MonitorSnapshot[] => {
+    if (!item || typeof item !== "object") return [];
+    const row = item as Record<string, unknown>;
+    const id = String(row.id ?? "");
+    const status = row.status as ServiceStatus;
+    if (!id || !validServiceStatuses.has(status) || !Number.isFinite(Number(row.checkedAt))) return [];
+    return [{
+      id,
+      status,
+      message: String(row.message ?? ""),
+      responseMs: row.responseMs === null || row.responseMs === undefined ? null : Number(row.responseMs),
+      players: row.players === null || row.players === undefined ? null : Number(row.players),
+      maxPlayers: row.maxPlayers === null || row.maxPlayers === undefined ? null : Number(row.maxPlayers),
+      checkedAt: Number(row.checkedAt),
+    }];
+  });
 }
 
-export async function getMonitorHeartbeat(): Promise<number | null> {
-  if (databaseUrl()) {
-    await ensureSchema();
-    const sql = await sqlClient();
-    const rows = await sql`SELECT last_successful_at FROM amrp_status_monitor WHERE id = 1`;
-    return rows.length ? Number(rows[0].last_successful_at) : null;
+/** The monitor owns these writes; the dashboard only consumes the latest snapshot. */
+export async function acquireMonitorLease(leaseMs = 120_000): Promise<string | null> {
+  const now = Date.now();
+  const minimumGapMs = 8_000;
+  const token = crypto.randomUUID();
+  if (!databaseUrl()) {
+    if (memoryMonitorHeartbeat !== null && memoryMonitorHeartbeat > now - minimumGapMs) return null;
+    if (memoryMonitorLease && memoryMonitorLease.until > now) return null;
+    memoryMonitorLease = { token, until: now + leaseMs };
+    return token;
   }
-  return memoryMonitorHeartbeat;
+  await ensureSchema();
+  const sql = await sqlClient();
+  const rows = await sql.query(
+    `INSERT INTO amrp_status_monitor (id, last_successful_at, snapshot, lease_token, lease_until)
+     VALUES (1, 0, '[]'::jsonb, $1, $2)
+     ON CONFLICT (id) DO UPDATE SET lease_token = EXCLUDED.lease_token, lease_until = EXCLUDED.lease_until
+     WHERE (amrp_status_monitor.lease_until <= $3 OR amrp_status_monitor.lease_token = '')
+       AND (amrp_status_monitor.last_successful_at = 0 OR amrp_status_monitor.last_successful_at <= $4)
+     RETURNING lease_token`,
+    [token, now + leaseMs, now, now - minimumGapMs],
+  );
+  return rows.length ? token : null;
+}
+
+export async function releaseMonitorLease(token: string) {
+  if (!databaseUrl()) {
+    if (memoryMonitorLease?.token === token) memoryMonitorLease = null;
+    return;
+  }
+  await ensureSchema();
+  const sql = await sqlClient();
+  await sql`UPDATE amrp_status_monitor SET lease_token = '', lease_until = 0 WHERE id = 1 AND lease_token = ${token}`;
+}
+
+export async function recordMonitorSnapshot(token: string, checkedAt: number, snapshot: MonitorSnapshot[]): Promise<boolean> {
+  const serialized = JSON.stringify(snapshot);
+  if (!databaseUrl()) {
+    if (!memoryMonitorLease || memoryMonitorLease.token !== token || memoryMonitorLease.until <= checkedAt) return false;
+    memoryMonitorHeartbeat = checkedAt;
+    memoryMonitorSnapshot = snapshot.map((item) => ({ ...item }));
+    memoryMonitorLease = null;
+    return true;
+  }
+  await ensureSchema();
+  const sql = await sqlClient();
+  const rows = await sql.query(
+    `UPDATE amrp_status_monitor SET last_successful_at = $2, snapshot = $3::jsonb, lease_token = '', lease_until = 0
+     WHERE id = 1 AND lease_token = $1 AND lease_until > $2 RETURNING id`,
+    [token, checkedAt, serialized],
+  );
+  return rows.length > 0;
+}
+
+/** Read-only setting lookup for the public status API; deliberately does not run schema setup. */
+export async function getSiteSettingsReadOnly(): Promise<SiteSettings> {
+  if (!databaseUrl()) return { ...memorySiteSettings };
+  const sql = await sqlClient();
+  const rows = await sql`SELECT maintenance, reason, updated_at AS "updatedAt" FROM amrp_status_site_settings WHERE id = 1`;
+  const row = rows[0];
+  return row
+    ? { maintenance: Number(row.maintenance) === 1, reason: String(row.reason || ""), updatedAt: Number(row.updatedAt) }
+    : { maintenance: false, reason: "", updatedAt: null };
+}
+
+/** Read the public dashboard in a small, fixed number of SELECTs. No probes, writes, DDL, or cache. */
+export async function getStatusDashboardData(range: HistoryRange, now: number): Promise<StatusDashboardData> {
+  const { duration, bins } = HISTORY_RANGES[range];
+  const start = now - duration;
+  const bucketSize = duration / bins;
+  if (!databaseUrl()) {
+    const services = memoryServices.filter((service) => service.enabled === 1).map((service) => ({ ...service }));
+    const histories: Record<string, (HistoryRow | null)[]> = {};
+    for (const service of services) histories[service.id] = await getHistory(service.id, range, now);
+    return {
+      services,
+      snapshot: memoryMonitorSnapshot.map((item) => ({ ...item })),
+      monitorCheckedAt: memoryMonitorHeartbeat,
+      histories,
+      incidents: await listIncidents(),
+      announcements: await listAnnouncements(),
+    };
+  }
+
+  const sql = await sqlClient();
+  const [serviceRows, incidentRows, announcementRows] = await Promise.all([
+    sql`SELECT id, name, category, kind, endpoint, enabled, paused, maintenance, maintenance_message AS "maintenanceMessage"
+        FROM amrp_status_services WHERE enabled = 1 ORDER BY category, name`,
+    sql.query(
+      `SELECT i.id, i.service_id AS "serviceId", COALESCE(s.name, i.service_id) AS "serviceName", i.status, i.reason,
+        i.started_at AS "startedAt", i.resolved_at AS "resolvedAt"
+       FROM (
+         SELECT * FROM amrp_status_incidents WHERE resolved_at IS NULL
+         UNION ALL
+         SELECT * FROM (SELECT * FROM amrp_status_incidents WHERE resolved_at IS NOT NULL ORDER BY started_at DESC LIMIT 20) recent_resolved
+       ) i LEFT JOIN amrp_status_services s ON s.id = i.service_id
+       ORDER BY i.started_at DESC`,
+    ),
+    sql`SELECT id, title, description, kind, affected_services AS "affectedServices", published,
+        published_at AS "publishedAt", created_at AS "createdAt", updated_at AS "updatedAt"
+        FROM amrp_status_announcements WHERE published = 1 ORDER BY published_at DESC`,
+  ]);
+  const services = serviceRows.map((row) => ({
+    id: String(row.id), name: String(row.name), category: String(row.category), kind: row.kind as ServiceKind,
+    endpoint: String(row.endpoint), enabled: Number(row.enabled), paused: Number(row.paused), maintenance: Number(row.maintenance),
+    maintenanceMessage: String(row.maintenanceMessage || ""),
+  }));
+  let monitorCheckedAt: number | null = null;
+  let snapshot: MonitorSnapshot[] = [];
+  try {
+    const rows = await sql`SELECT last_successful_at AS "checkedAt", snapshot FROM amrp_status_monitor WHERE id = 1`;
+    if (rows[0]) {
+      const checkedAt = Number(rows[0].checkedAt);
+      monitorCheckedAt = checkedAt > 0 ? checkedAt : null;
+      snapshot = parseMonitorSnapshot(rows[0].snapshot);
+    }
+  } catch {
+    // During rollout, an older database may not have the snapshot column yet.
+    const rows = await sql`SELECT last_successful_at AS "checkedAt" FROM amrp_status_monitor WHERE id = 1`;
+    if (rows[0]) {
+      const checkedAt = Number(rows[0].checkedAt);
+      monitorCheckedAt = checkedAt > 0 ? checkedAt : null;
+    }
+  }
+
+  const histories: Record<string, (HistoryRow | null)[]> = Object.fromEntries(
+    services.map((service) => [service.id, Array.from({ length: bins }, () => null)]),
+  );
+  if (services.length) {
+    const ids = services.map((service) => service.id);
+    const historyRows = await sql.query(
+      `SELECT service_id AS "serviceId", LEAST($5 - 1, FLOOR((checked_at - $1) / $2))::INTEGER AS bin,
+        (ARRAY_AGG(status ORDER BY CASE status WHEN 'down' THEN 4 WHEN 'degraded' THEN 3 WHEN 'maintenance' THEN 2 WHEN 'unknown' THEN 1 ELSE 0 END DESC, checked_at DESC))[1] AS status,
+        (ARRAY_AGG(checked_at ORDER BY CASE status WHEN 'down' THEN 4 WHEN 'degraded' THEN 3 WHEN 'maintenance' THEN 2 WHEN 'unknown' THEN 1 ELSE 0 END DESC, checked_at DESC))[1] AS "checkedAt",
+        (ARRAY_AGG(message ORDER BY CASE status WHEN 'down' THEN 4 WHEN 'degraded' THEN 3 WHEN 'maintenance' THEN 2 WHEN 'unknown' THEN 1 ELSE 0 END DESC, checked_at DESC))[1] AS message
+       FROM amrp_status_history WHERE service_id = ANY($3::text[]) AND checked_at >= $1 AND checked_at <= $4
+       GROUP BY service_id, LEAST($5 - 1, FLOOR((checked_at - $1) / $2)) ORDER BY service_id, bin`,
+      [start, bucketSize, ids, now, bins],
+    );
+    for (const row of historyRows) {
+      const index = Number(row.bin);
+      const history = histories[String(row.serviceId)];
+      if (history && index >= 0 && index < bins) history[index] = { status: row.status as ServiceStatus, checkedAt: Number(row.checkedAt), message: String(row.message ?? "") };
+    }
+    if (!snapshot.length) {
+      const latestRows = await sql.query(
+        `SELECT DISTINCT ON (service_id) service_id AS id, status, message, response_ms AS "responseMs", players, max_players AS "maxPlayers", checked_at AS "checkedAt"
+         FROM amrp_status_history WHERE service_id = ANY($1::text[]) ORDER BY service_id, checked_at DESC`, [ids],
+      );
+      snapshot = latestRows.map((row) => ({
+        id: String(row.id), status: row.status as ServiceStatus, message: String(row.message ?? ""),
+        responseMs: row.responseMs === null ? null : Number(row.responseMs), players: row.players === null ? null : Number(row.players),
+        maxPlayers: row.maxPlayers === null ? null : Number(row.maxPlayers), checkedAt: Number(row.checkedAt),
+      }));
+    }
+  }
+  return {
+    services,
+    snapshot,
+    monitorCheckedAt,
+    histories,
+    incidents: incidentRows.map((row) => ({
+      id: Number(row.id), serviceId: String(row.serviceId), serviceName: String(row.serviceName), status: row.status as ServiceStatus,
+      reason: String(row.reason), startedAt: Number(row.startedAt), resolvedAt: row.resolvedAt === null ? null : Number(row.resolvedAt),
+    })),
+    announcements: announcementRows.map((row) => ({
+      id: String(row.id), title: String(row.title), description: String(row.description), kind: row.kind === "outage" ? "outage" : "notice",
+      affectedServices: parseAnnouncementServices(row.affectedServices), published: Number(row.published) === 1,
+      publishedAt: row.publishedAt === null ? null : Number(row.publishedAt), createdAt: Number(row.createdAt), updatedAt: Number(row.updatedAt),
+    })),
+  };
 }
 
 export function validateService(input: unknown): Omit<ServiceRow, "id"> {

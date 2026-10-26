@@ -202,7 +202,9 @@ function formatIncidentDuration(startedAt: number) {
 
 export default function StatusDashboard() {
   const [siteMaintenance, setSiteMaintenance] = useState(false);
+  const [siteMaintenanceReason, setSiteMaintenanceReason] = useState("");
   const [statusUnavailable, setStatusUnavailable] = useState(false);
+  const [hasInitialResponse, setHasInitialResponse] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastChecked, setLastChecked] = useState<number | null>(null);
@@ -271,9 +273,9 @@ export default function StatusDashboard() {
     checking.current = true;
     if (manual) setRefreshing(true);
     try {
-      const response = await fetch(`/api/status?range=${range}&t=${Date.now()}`, { cache: "no-store" });
+      const response = await fetch(`/api/status?range=${range}`, { cache: "no-store" });
       if (response.status === 503) {
-        const failure = await response.json() as { maintenance?: boolean; unavailable?: boolean; error?: string };
+        const failure = await response.json() as { maintenance?: boolean; reason?: string; unavailable?: boolean; error?: string };
         if (failure.unavailable) {
           setStatusUnavailable(true);
           setServices([]);
@@ -284,6 +286,7 @@ export default function StatusDashboard() {
         }
         if (failure.maintenance) {
           setSiteMaintenance(true);
+          setSiteMaintenanceReason(failure.reason || "");
           setServices([]);
           setIncidents([]);
           setAnnouncements([]);
@@ -306,6 +309,7 @@ export default function StatusDashboard() {
       previousStatuses.current = Object.fromEntries(payload.services.map((service) => [service.id, service.status]));
       setServices(payload.services);
       setSiteMaintenance(false);
+      setSiteMaintenanceReason("");
       setStatusUnavailable(false);
       setIncidents(payload.incidents ?? []);
       setAnnouncements(payload.announcements ?? []);
@@ -317,6 +321,7 @@ export default function StatusDashboard() {
       setError(cause instanceof Error ? cause.message : "De status kon niet worden opgehaald.");
     } finally {
       setLoading(false);
+      setHasInitialResponse(true);
       checking.current = false;
       if (manual) setRefreshing(false);
     }
@@ -324,9 +329,27 @@ export default function StatusDashboard() {
 
   useEffect(() => {
     const preference = setTimeout(() => setNotificationsEnabled(localStorage.getItem("amrp_status_subscribed") === "true"), 0);
-    const first = statusUnavailable ? null : setTimeout(() => void refresh(), 0);
-    const timer = setInterval(() => { if (!statusUnavailable) void refresh(); }, 5000);
-    return () => { clearTimeout(preference); if (first !== null) clearTimeout(first); clearInterval(timer); };
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = (delay = document.visibilityState === "hidden" ? 30_000 : 10_000) => {
+      if (timer) clearTimeout(timer);
+      if (statusUnavailable) return;
+      timer = setTimeout(async () => {
+        await refresh();
+        schedule();
+      }, delay);
+    };
+    const onVisibilityChange = () => {
+      if (!statusUnavailable && document.visibilityState === "visible") void refresh();
+      schedule();
+    };
+    const first = statusUnavailable ? undefined : setTimeout(() => { void refresh(); schedule(); }, 0);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      clearTimeout(preference);
+      if (first) clearTimeout(first);
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [refresh, statusUnavailable]);
 
   const toggleNotifications = async () => {
@@ -392,8 +415,9 @@ export default function StatusDashboard() {
   const updatedAtLabel = lastChecked ? new Date(lastChecked).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }) : "—";
   const monitorCheckedLabel = monitorCheckedAt ? new Date(monitorCheckedAt).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "nog geen succesvolle controle";
 
+  if (!hasInitialResponse) return <main className="status-startup" role="status" aria-live="polite" aria-busy="true"><div className="status-startup-card"><span className="status-startup-dot" aria-hidden="true" /><span className="status-startup-copy"><strong>Status wordt opgehaald</strong><span>Een ogenblik, we controleren de actuele status.</span></span></div></main>;
   if (statusUnavailable) return <SiteMaintenance unavailable />;
-  if (siteMaintenance) return <SiteMaintenance />;
+  if (siteMaintenance) return <SiteMaintenance reason={siteMaintenanceReason} />;
 
   return (
     <main className="page-shell" data-density={preferences.density}>
