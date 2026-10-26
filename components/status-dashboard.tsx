@@ -329,10 +329,11 @@ export default function StatusDashboard() {
 
   useEffect(() => {
     const preference = setTimeout(() => setNotificationsEnabled(localStorage.getItem("amrp_status_subscribed") === "true"), 0);
+    let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const schedule = (delay = document.visibilityState === "hidden" ? 1_200_000 : 600_000) => {
       if (timer) clearTimeout(timer);
-      if (statusUnavailable) return;
+      if (!active || statusUnavailable || document.visibilityState === "hidden") return;
       timer = setTimeout(async () => {
         await refresh();
         schedule();
@@ -345,6 +346,7 @@ export default function StatusDashboard() {
     const first = statusUnavailable ? undefined : setTimeout(() => { void refresh(); schedule(); }, 0);
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
+      active = false;
       clearTimeout(preference);
       if (first) clearTimeout(first);
       if (timer) clearTimeout(timer);

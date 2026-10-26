@@ -44,7 +44,7 @@ export async function confirmAutomaticProbe(id: string, status: string, checkedA
     if(previous&&checkedAt<=previous.checkedAt)return failed?previous.failures:0;
     if(!failed){localConfirmations.set(id,{failures:0,checkedAt});return 0;}
     if(previous&&checkedAt-previous.checkedAt<5000)return previous.failures;
-    const failures=previous&&checkedAt-previous.checkedAt<=30000?Math.min(previous.failures+1,3):1;
+    const failures=previous&&checkedAt-previous.checkedAt<=1800000?Math.min(previous.failures+1,3):1;
     localConfirmations.set(id,{failures,checkedAt});return failures;
   }
   const sql = await operationsDatabase();
@@ -52,7 +52,7 @@ export async function confirmAutomaticProbe(id: string, status: string, checkedA
     ON CONFLICT(service_id) DO UPDATE SET
     failures=CASE WHEN EXCLUDED.checked_at <= amrp_status_probe_confirmation.checked_at THEN amrp_status_probe_confirmation.failures
       WHEN $2=0 THEN 0 WHEN EXCLUDED.checked_at-amrp_status_probe_confirmation.checked_at < 5000 THEN amrp_status_probe_confirmation.failures
-      WHEN EXCLUDED.checked_at-amrp_status_probe_confirmation.checked_at > 30000 THEN 1 ELSE LEAST(amrp_status_probe_confirmation.failures+1,3) END,
+      WHEN EXCLUDED.checked_at-amrp_status_probe_confirmation.checked_at > 1800000 THEN 1 ELSE LEAST(amrp_status_probe_confirmation.failures+1,3) END,
     checked_at=CASE WHEN EXCLUDED.checked_at>amrp_status_probe_confirmation.checked_at AND ($2=0 OR EXCLUDED.checked_at-amrp_status_probe_confirmation.checked_at>=5000) THEN EXCLUDED.checked_at ELSE amrp_status_probe_confirmation.checked_at END
     RETURNING failures`,[id,failed?1:0,checkedAt]);
   return failed ? Number(rows[0].failures) : 0;

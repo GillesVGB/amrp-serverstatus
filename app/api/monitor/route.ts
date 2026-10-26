@@ -1,4 +1,4 @@
-import { acquireMonitorLease, listServices, pruneHistory, recordHistory, recordIncidentState, recordMonitorSnapshot, releaseMonitorLease, type MonitorSnapshot, type ServiceRow, type ServiceStatus } from "@/app/lib/server";
+import { acquireMonitorLease, listServices, recordHistory, recordIncidentState, recordMonitorSnapshot, releaseMonitorLease, type MonitorSnapshot, type ServiceRow, type ServiceStatus } from "@/app/lib/server";
 import { confirmAutomaticProbe } from "@/app/lib/admin-storage";
 import { runScheduledMaintenance } from "@/app/lib/admin-operations";
 import { websiteMaintenanceReason } from "@/app/lib/website-maintenance";
@@ -117,7 +117,6 @@ export async function POST(request: Request) {
       await publishIncidentTransition(service, current, checkedAt);
       return { id: service.id, ...current, checkedAt };
     }));
-    await pruneHistory(checkedAt - 24 * 60 * 60 * 1000);
     const saved = await recordMonitorSnapshot(lease, checkedAt, snapshots);
     if (!saved) throw new Error("De monitorlease is verlopen voordat de resultaten zijn opgeslagen.");
     return Response.json({ ok: true, checkedAt, heartbeatAt: checkedAt, checkedServices: snapshots.length }, { headers: { "Cache-Control": "no-store" } });
