@@ -209,7 +209,7 @@ test("monitor owns normal checks, maintenance states, history writes, heartbeat 
   assert.equal(h.calls.probes.length, 1);
   assert.equal(new URL(h.calls.probes[0]).origin, "https://fivem.example");
   assert.ok(new URL(h.calls.probes[0]).searchParams.has("t"));
-  assert.equal(h.calls.prune.length, 1);
+  assert.equal(h.calls.prune.length, 0, "a status check must preserve existing history");
   assert.deepEqual(h.calls.releases, ["test-lease"]);
 });
 
